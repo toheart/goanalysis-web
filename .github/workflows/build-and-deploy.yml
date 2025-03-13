@@ -52,7 +52,7 @@ jobs:
         cd ..
 
     - name: upload build artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: dist-v${{ steps.package_version.outputs.VERSION }}
         path: dist-v${{ steps.package_version.outputs.VERSION }}.zip
