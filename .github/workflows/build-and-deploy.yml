@@ -1,0 +1,86 @@
+name: build-and-deploy
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'deploy environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: checkout code
+      uses: actions/checkout@v3
+
+    - name: setup node
+      uses: actions/setup-node@v3
+      with:
+        node-version: '16'
+        cache: 'npm'
+
+    - name: install dependencies
+      run: npm ci
+
+    - name: run code check
+      run: npm run lint
+
+    - name: extract version
+      id: package_version
+      run: echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+    - name: build project
+      run: npm run build
+      env:
+        NODE_ENV: production
+
+    - name: package build artifact
+      run: |
+        cd dist
+        zip -r ../dist-v${{ steps.package_version.outputs.VERSION }}.zip .
+        cd ..
+
+    - name: upload build artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: dist-v${{ steps.package_version.outputs.VERSION }}
+        path: dist-v${{ steps.package_version.outputs.VERSION }}.zip
+        retention-days: 7
+
+  # 可选：添加部署步骤
+  # deploy:
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   if: github.event_name != 'pull_request'
+  #
+  #   steps:
+  #   - name: 下载构建产物
+  #     uses: actions/download-artifact@v3
+  #     with:
+  #       name: dist-v${{ needs.build.outputs.version }}
+  #
+  #   - name: 解压构建产物
+  #     run: unzip dist-v*.zip -d dist
+  #
+  #   - name: 部署到服务器
+  #     # 这里可以使用 SSH 部署、FTP 上传或其他部署方式
+  #     # 例如使用 SSH 部署:
+  #     # uses: appleboy/ssh-action@master
+  #     # with:
+  #     #   host: ${{ secrets.HOST }}
+  #     #   username: ${{ secrets.USERNAME }}
+  #     #   key: ${{ secrets.SSH_KEY }}
+  #     #   script: |
+  #     #     rm -rf /var/www/html/*
+  #     #     cp -r /path/to/uploaded/dist/* /var/www/html/ 
