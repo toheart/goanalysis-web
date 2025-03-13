@@ -3,6 +3,8 @@ name: build-and-deploy
 on:
   push:
     branches: [ main, master ]
+    tags:
+      - 'v*' # 匹配所有以v开头的标签，如v1.0.0
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
@@ -19,10 +21,14 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.package_version.outputs.VERSION }}
 
     steps:
     - name: checkout code
       uses: actions/checkout@v3
+      with:
+        fetch-depth: 0  # 获取完整的git历史，用于生成变更日志
 
     - name: setup node
       uses: actions/setup-node@v3
@@ -38,7 +44,16 @@ jobs:
 
     - name: extract version
       id: package_version
-      run: echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+      run: |
+        if [[ "${{ github.ref_type }}" == "tag" ]]; then
+          # 如果是标签触发，使用标签名作为版本号（去掉v前缀）
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"
+        else
+          # 否则使用package.json中的版本号
+          VERSION=$(node -p "require('./package.json').version")
+        fi
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 
     - name: build project
       run: npm run build
@@ -58,6 +73,69 @@ jobs:
         path: dist-v${{ steps.package_version.outputs.VERSION }}.zip
         retention-days: 7
 
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+    - name: checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0  # 获取完整的git历史，用于生成变更日志
+
+    - name: get previous tag
+      id: previoustag
+      run: |
+        PREVIOUS_TAG=$(git describe --tags --abbrev=0 ${{ github.ref_name }}^ 2>/dev/null || echo "")
+        if [ -z "$PREVIOUS_TAG" ]; then
+          echo "No previous tag found, using first commit"
+          PREVIOUS_TAG=$(git rev-list --max-parents=0 HEAD)
+        fi
+        echo "PREVIOUS_TAG=$PREVIOUS_TAG" >> $GITHUB_OUTPUT
+
+    - name: generate changelog
+      id: changelog
+      run: |
+        echo "## 与上一版本 ${{ steps.previoustag.outputs.PREVIOUS_TAG }} 相比的变更" > changelog.md
+        echo "" >> changelog.md
+        
+        # 添加提交记录
+        echo "### 提交记录" >> changelog.md
+        git log --pretty=format:"* %s (%h) - %an" ${{ steps.previoustag.outputs.PREVIOUS_TAG }}..${{ github.ref_name }} >> changelog.md
+        echo "" >> changelog.md
+        
+        # 添加文件变更统计
+        echo "### 文件变更统计" >> changelog.md
+        echo "| 类型 | 数量 |" >> changelog.md
+        echo "| ---- | ---- |" >> changelog.md
+        echo "| 新增文件 | $(git diff --name-only --diff-filter=A ${{ steps.previoustag.outputs.PREVIOUS_TAG }}..${{ github.ref_name }} | wc -l) |" >> changelog.md
+        echo "| 修改文件 | $(git diff --name-only --diff-filter=M ${{ steps.previoustag.outputs.PREVIOUS_TAG }}..${{ github.ref_name }} | wc -l) |" >> changelog.md
+        echo "| 删除文件 | $(git diff --name-only --diff-filter=D ${{ steps.previoustag.outputs.PREVIOUS_TAG }}..${{ github.ref_name }} | wc -l) |" >> changelog.md
+        echo "" >> changelog.md
+        
+        # 添加主要变更文件列表
+        echo "### 主要变更文件" >> changelog.md
+        git diff --name-only ${{ steps.previoustag.outputs.PREVIOUS_TAG }}..${{ github.ref_name }} | sort | head -n 20 | sed 's/^/* /' >> changelog.md
+        
+        cat changelog.md
+
+    - name: download build artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: dist-v${{ needs.build.outputs.version }}
+        
+    - name: create release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: dist-v${{ needs.build.outputs.version }}.zip
+        name: Release ${{ github.ref_name }}
+        body_path: changelog.md
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   # 可选：添加部署步骤
   # deploy:
   #   needs: build
@@ -66,7 +144,7 @@ jobs:
   #
   #   steps:
   #   - name: 下载构建产物
-  #     uses: actions/download-artifact@v3
+  #     uses: actions/download-artifact@v4
   #     with:
   #       name: dist-v${{ needs.build.outputs.version }}
   #
