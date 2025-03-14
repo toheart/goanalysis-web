@@ -6,6 +6,6 @@ alwaysApply: false
 ---
 description: 
 globs: 
-alwaysApply: false
+alwaysApply: true
 ---
 

@@ -164,14 +164,15 @@ export default {
       originalApiData: null,
       dataFormatInfo: '',
       alternativeFormatIndex: 0,
-      resizeTimer: null
+      resizeTimer: null,
+      timers: []
     };
   },
   watch: {
     visible(newVal) {
       if (newVal) {
         // 延迟初始化图表，确保模态框已完全显示
-        setTimeout(() => {
+        this.createTimer(() => {
           this.initChart();
         }, 300);
       } else {
@@ -181,7 +182,7 @@ export default {
     gid(newVal) {
       if (this.visible && newVal) {
         // 延迟初始化图表，确保模态框已完全显示
-        setTimeout(() => {
+        this.createTimer(() => {
           this.initChart();
         }, 300);
       }
@@ -190,7 +191,7 @@ export default {
   mounted() {
     if (this.visible) {
       // 延迟初始化图表，确保模态框已完全显示
-      setTimeout(() => {
+      this.createTimer(() => {
         this.initChart();
       }, 300);
     }
@@ -202,6 +203,13 @@ export default {
     window.removeEventListener('resize', this.handleResize);
   },
   methods: {
+    // 辅助方法：创建并跟踪定时器
+    createTimer(callback, delay) {
+      const timer = setTimeout(callback, delay);
+      this.timers.push(timer);
+      return timer;
+    },
+    
     async initChart() {
       console.log('开始初始化图表');
       this.loading = true;
@@ -229,7 +237,7 @@ export default {
         // 确保 DOM 已更新
         this.$nextTick(() => {
           // 使用更长的延迟，确保模态框完全显示并且 DOM 已渲染
-          setTimeout(() => {
+          this.createTimer(() => {
             console.log('DOM 已更新，开始创建图表');
             
             // 确保图表容器可见
@@ -238,16 +246,15 @@ export default {
               chartContainer.style.display = 'block';
               
               // 延迟一小段时间，确保样式已应用
-              setTimeout(() => {
+              this.createTimer(() => {
                 this.createChart();
-                this.loading = false;
               }, 100);
             } else {
-              console.error('图表容器不存在，无法创建图表');
-              this.error = '无法创建图表：容器元素不存在';
+              console.error('图表容器不存在');
+              this.error = '图表容器不存在';
               this.loading = false;
             }
-          }, 500);
+          }, 200);
         });
       } catch (err) {
         console.error('加载调用图数据失败:', err);
@@ -674,13 +681,11 @@ export default {
         this.error = '无法创建图表：容器元素不存在';
         this.loading = false;
         
-        // 延迟重试
-        setTimeout(() => {
-          console.log('延迟重试创建图表...');
-          if (this.$refs.chartContainer) {
-            this.createChart();
-          }
-        }, 1000);
+        // 延迟重试，等待样式应用
+        this.createTimer(() => {
+          console.log('容器尺寸已调整，重试创建图表...');
+          this.createChart();
+        }, 500);
         return;
       }
       
@@ -697,7 +702,7 @@ export default {
         chartContainer.style.display = 'block';
         
         // 延迟重试，等待样式应用
-        setTimeout(() => {
+        this.createTimer(() => {
           console.log('容器尺寸已调整，重试创建图表...');
           this.createChart();
         }, 500);
@@ -735,7 +740,7 @@ export default {
         
         // 如果是因为容器问题，尝试延迟重试
         if (error.message.includes('container') || error.message.includes('DOM')) {
-          setTimeout(() => {
+          this.createTimer(() => {
             console.log('因容器问题创建失败，延迟重试...');
             this.createChart();
           }, 1000);
@@ -987,7 +992,7 @@ export default {
         animationEasingUpdate: 'quinticInOut',
         series: [{
           name: '函数调用',
-          type: 'graph',
+          type: 'tree',
           layout: 'force',
           data: nodes,
           links: edges,
@@ -1085,7 +1090,7 @@ export default {
         clearTimeout(this.resizeTimer);
       }
       
-      this.resizeTimer = setTimeout(() => {
+      this.resizeTimer = this.createTimer(() => {
         if (this.visible && this.chartInstance) {
           this.resizeChart();
         }
@@ -1109,6 +1114,23 @@ export default {
         clearTimeout(this.resizeTimer);
         this.resizeTimer = null;
       }
+      
+      // 清理其他可能的定时器和异步操作
+      if (this.dataTimer) {
+        clearTimeout(this.dataTimer);
+        this.dataTimer = null;
+      }
+      
+      // 清理所有跟踪的定时器
+      this.timers.forEach(timer => {
+        clearTimeout(timer);
+      });
+      this.timers = [];
+      
+      // 重置状态
+      this.loading = false;
+      this.error = null;
+      this.hasData = false;
     },
     
     closeModal() {
@@ -1162,7 +1184,7 @@ export default {
         
         // 延迟创建新图表，确保DOM已更新
         this.$nextTick(() => {
-          setTimeout(() => {
+          this.createTimer(() => {
             this.createChart();
           }, 300);
         });
@@ -1272,7 +1294,7 @@ export default {
       // 使用 nextTick 确保 DOM 已更新
       this.$nextTick(() => {
         // 添加延迟，确保模态框完全显示并且 DOM 已渲染
-        setTimeout(() => {
+        this.createTimer(() => {
           console.log('使用模拟数据创建图表');
           this.createChart();
         }, 500);

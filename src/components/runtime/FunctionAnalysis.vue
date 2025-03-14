@@ -1,5 +1,12 @@
 <template>
   <div class="function-analysis">
+    <!-- 返回首页按钮 -->
+    <div class="mb-4">
+      <button class="btn btn-outline-secondary" @click="backToHome">
+        <i class="bi bi-arrow-left me-2"></i>返回首页
+      </button>
+    </div>
+
     <!-- 函数搜索区域 -->
     <div class="card mb-4">
       <div class="card-header">
@@ -29,9 +36,9 @@
             </small>
             
             <!-- 使用teleport将下拉框移到body层级 -->
-            <teleport to="body">
+            <teleport to="body" :disabled="!isComponentMounted">
               <!-- 函数名建议列表 -->
-              <div class="suggestions-container" v-if="showFunctionSuggestions && filteredFunctionNames.length" :style="suggestionsStyle">
+              <div class="suggestions-container" v-if="showFunctionSuggestions && filteredFunctionNames.length && isComponentMounted" :style="suggestionsStyle">
                 <div class="suggestions-wrapper">
                   <ul class="list-group function-suggestions" ref="suggestionsList">
                     <li
@@ -150,6 +157,14 @@ export default {
     projectPath: {
       type: String,
       required: true
+    },
+    dbPath: {
+      type: String,
+      default: ''
+    },
+    currentFileName: {
+      type: String,
+      default: ''
     }
   },
   data() {
@@ -163,7 +178,6 @@ export default {
       inputPosition: { top: 0, left: 0, width: 0 },
       functionCallData: [],
       collapsedNodes: new Set(),
-      dbpath: '', // 当前使用的数据库路径
       searchTimeout: null, // 用于防抖
       selectedSuggestionIndex: 0, // 当前选中的建议索引
       maxSuggestions: 20, // 增加最大显示建议数量
@@ -173,7 +187,8 @@ export default {
         left: '0px',
         width: '300px',
         zIndex: 9999
-      }
+      },
+      isComponentMounted: false // 组件是否已挂载
     };
   },
   setup() {
@@ -247,7 +262,12 @@ export default {
     window.addEventListener('scroll', this.handleScroll, true);
   },
   beforeUnmount() {
+    // 确保在组件卸载前将标志设置为 false
     this.isComponentMounted = false;
+    
+    // 清除所有建议和计时器
+    this.showFunctionSuggestions = false;
+    this.filteredFunctionNames = [];
     
     // 移除事件监听器
     document.removeEventListener('click', this.handleDocumentClick);
@@ -260,8 +280,16 @@ export default {
     if (this.suggestionsTimer) {
       clearTimeout(this.suggestionsTimer);
     }
+    
+    if (this.searchTimeout) {
+      clearTimeout(this.searchTimeout);
+    }
   },
   methods: {
+    // 返回首页
+    backToHome() {
+      this.$router.push('/');
+    },
     
     // 处理文档点击事件
     handleDocumentClick(event) {
@@ -572,14 +600,13 @@ export default {
     // 获取当前数据库路径
     getCurrentDbPath() {
       // 如果已经设置了数据库路径，直接返回
-      if (this.dbpath) {
-        return this.dbpath;
+      if (this.dbPath) {
+        return this.dbPath;
       }
       
       // 否则使用项目路径
       if (this.projectPath) {
-        this.dbpath = this.projectPath;
-        return this.dbpath;
+        return this.projectPath;
       }
       
       // 如果都没有，返回空字符串
