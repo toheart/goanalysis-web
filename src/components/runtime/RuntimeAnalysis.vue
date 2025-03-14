@@ -1,317 +1,466 @@
 <template>
   <div class="runtime-analysis">
-    <!-- 函数名建议列表 -->
-    <div class="suggestions-wrapper" v-if="showFunctionSuggestions && filteredFunctionNames.length">
-      <ul class="list-group function-suggestions">
-        <li
-          v-for="(name, index) in filteredFunctionNames"
-          :key="index"
-          class="list-group-item list-group-item-action"
-          @mousedown.prevent="selectFunction(name)"
-        >
-          {{ name }}
-        </li>
-      </ul>
-    </div>
-
-    <!-- 统计卡片 -->
-    <div class="row mb-4">
-      <div class="col-md-3">
-        <div class="card h-100">
-          <div class="card-body text-center">
-            <h5 class="card-title"><i class="bi bi-cpu me-2"></i>{{ $t('runtimeAnalysis.statistics.activeGoroutines') }}</h5>
-            <p class="display-4">{{ goroutineStats.active || 0 }}</p>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-3">
-        <div class="card h-100">
-          <div class="card-body text-center">
-            <h5 class="card-title"><i class="bi bi-hourglass-split me-2"></i>{{ $t('runtimeAnalysis.statistics.avgExecutionTime') }}</h5>
-            <p class="display-4">{{ goroutineStats.avgTime || '0ms' }}</p>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-3">
-        <div class="card h-100">
-          <div class="card-body text-center">
-            <h5 class="card-title"><i class="bi bi-lightning-charge me-2"></i>{{ $t('runtimeAnalysis.statistics.maxCallDepth') }}</h5>
-            <p class="display-4">{{ goroutineStats.maxDepth || 0 }}</p>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-3">
-        <div class="card h-100">
-          <div class="card-body text-center">
-            <h5 class="card-title"><i class="bi bi-exclamation-triangle me-2"></i>未完成函数</h5>
-            <p class="display-4">{{ unfinishedFunctions.length || 0 }}</p>
-          </div>
-        </div>
+    <!-- 消息提示组件 -->
+    <div class="message-container" v-if="message.show">
+      <div :class="['message-box', `message-${message.type}`]">
+        <i :class="['bi', messageIcon]"></i>
+        <span>{{ message.content }}</span>
       </div>
     </div>
+    
+    <!-- 文件列表页面 -->
+    <div v-if="showFileList" class="file-list-container">
+      <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0"><i class="bi bi-file-earmark me-2"></i>运行时分析文件列表</h5>
+          <div class="d-flex align-items-center">
+            <button class="btn btn-primary" @click="showUploadModal = true">
+              <i class="bi bi-upload me-2"></i>上传文件
+            </button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div v-if="loadingFiles" class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">加载中...</span>
+            </div>
+            <p class="mt-3">正在加载文件列表...</p>
+          </div>
+          <div v-else-if="files.length === 0" class="text-center py-5">
+            <i class="bi bi-folder2-open text-muted display-4"></i>
+            <p class="mt-3">没有找到运行时分析文件</p>
+            <button class="btn btn-primary mt-2" @click="showUploadModal = true">
+              <i class="bi bi-upload me-2"></i>上传文件
+            </button>
+          </div>
+          <div v-else>
+            <div class="table-responsive">
+              <table class="table table-hover">
+                <thead class="table-light">
+                  <tr>
+                    <th>文件名</th>
+                    <th class="text-center">大小</th>
+                    <th class="text-center">创建时间</th>
+                    <th class="text-center">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="file in files" :key="file.id">
+                    <td>{{ file.name }}</td>
+                    <td class="text-center">{{ formatFileSize(file.size) }}</td>
+                    <td class="text-center">{{ formatDate(file.createTime) }}</td>
+                    <td class="text-center">
+                      <button class="btn btn-sm btn-primary me-2" @click="selectFile(file)">
+                        <i class="bi bi-check-circle me-1"></i>选择
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            
+            <!-- 文件列表分页 -->
+            <div class="d-flex justify-content-between align-items-center mt-3">
+              <div>
+                显示 {{ (filesPage - 1) * filesLimit + 1 }} - {{ Math.min(filesPage * filesLimit, filesTotal) }} 条，共 {{ filesTotal }} 条
+              </div>
+              <nav aria-label="文件列表分页">
+                <ul class="pagination mb-0">
+                  <li class="page-item" :class="{ disabled: filesPage === 1 }">
+                    <a class="page-link" href="#" @click.prevent="changePage(1)">首页</a>
+                  </li>
+                  <li class="page-item" :class="{ disabled: filesPage === 1 }">
+                    <a class="page-link" href="#" @click.prevent="changePage(filesPage - 1)">上一页</a>
+                  </li>
+                  <li v-for="page in displayedFilesPages" :key="page" class="page-item" :class="{ active: page === filesPage }">
+                    <a class="page-link" href="#" @click.prevent="changePage(page)">{{ page }}</a>
+                  </li>
+                  <li class="page-item" :class="{ disabled: filesPage === filesTotalPages }">
+                    <a class="page-link" href="#" @click.prevent="changePage(filesPage + 1)">下一页</a>
+                  </li>
+                  <li class="page-item" :class="{ disabled: filesPage === filesTotalPages }">
+                    <a class="page-link" href="#" @click.prevent="changePage(filesTotalPages)">末页</a>
+                  </li>
+                </ul>
+              </nav>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
-    <!-- 未完成函数列表 -->
-    <div class="card mb-4">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="bi bi-exclamation-circle me-2"></i>未完成函数列表</h5>
-        <div class="d-flex align-items-center">
-          <div class="threshold-control me-3">
-            <label class="form-label mb-0 me-2 fw-bold">阻塞阈值：</label>
-            <div class="input-group">
-              <input 
-                type="number" 
-                class="form-control" 
-                v-model="blockingThreshold" 
-                min="100"
-                step="100"
-                style="width: 100px;"
-              >
-              <span class="input-group-text">ms</span>
-              <button class="btn btn-primary" @click="updateBlockingThreshold" title="应用阈值">
-                <i class="bi bi-check-lg"></i> 应用
+    <!-- 文件上传模态框 -->
+    <div class="modal fade" :class="{ show: showUploadModal }" tabindex="-1" :style="{ display: showUploadModal ? 'block' : 'none' }">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">上传运行时分析文件</h5>
+            <button type="button" class="btn-close" @click="showUploadModal = false"></button>
+          </div>
+          <div class="modal-body">
+            <div v-if="uploadStatus.uploading" class="text-center py-3">
+              <div class="progress mb-3">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                     :style="{ width: uploadStatus.progress + '%' }">
+                  {{ uploadStatus.progress }}%
+                </div>
+              </div>
+              <p>正在上传文件，请勿关闭窗口...</p>
+              <p class="text-muted">{{ uploadStatus.currentChunk }}/{{ uploadStatus.totalChunks }} 块</p>
+            </div>
+            <form v-else @submit.prevent="uploadFile">
+              <div class="mb-3">
+                <label for="file" class="form-label">选择文件</label>
+                <input type="file" class="form-control" id="file" @change="handleFileChange" required>
+                <div class="form-text">支持的文件类型：所有文件</div>
+              </div>
+              <div class="mb-3">
+                <label for="description" class="form-label">文件描述</label>
+                <textarea class="form-control" id="description" v-model="uploadForm.description" rows="3"></textarea>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">分块大小</label>
+                <div class="input-group">
+                  <input type="number" class="form-control" v-model="chunkSize" min="1" max="10">
+                  <span class="input-group-text">MB</span>
+                </div>
+                <div class="form-text">建议值：2-5MB，根据网络状况调整</div>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @click="showUploadModal = false" :disabled="uploadStatus.uploading">取消</button>
+            <button type="button" class="btn btn-primary" @click="uploadFile" :disabled="!uploadForm.file || uploadStatus.uploading">
+              <i class="bi bi-upload me-2"></i>上传
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div v-if="showUploadModal" class="modal-backdrop fade show"></div>
+
+    <!-- 运行时分析内容 -->
+    <div v-if="!showFileList">
+      <!-- 返回文件列表按钮 -->
+      <div class="mb-4">
+        <button class="btn btn-outline-secondary" @click="clearPath">
+          <i class="bi bi-arrow-left me-2"></i>返回文件列表
+        </button>
+        <span class="ms-3">当前文件：{{ currentFileName }}</span>
+      </div>
+      
+      <!-- 函数名建议列表 -->
+      <div class="suggestions-wrapper" v-if="showFunctionSuggestions && filteredFunctionNames.length">
+        <ul class="list-group function-suggestions">
+          <li
+            v-for="(name, index) in filteredFunctionNames"
+            :key="index"
+            class="list-group-item list-group-item-action"
+            @mousedown.prevent="selectFunction(name)"
+          >
+            {{ name }}
+          </li>
+        </ul>
+      </div>
+
+      <!-- 统计卡片 -->
+      <div class="row mb-4">
+        <div class="col-md-3">
+          <div class="card h-100">
+            <div class="card-body text-center">
+              <h5 class="card-title"><i class="bi bi-cpu me-2"></i>{{ $t('runtimeAnalysis.statistics.activeGoroutines') }}</h5>
+              <p class="display-4">{{ goroutineStats.active || 0 }}</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card h-100">
+            <div class="card-body text-center">
+              <h5 class="card-title"><i class="bi bi-hourglass-split me-2"></i>{{ $t('runtimeAnalysis.statistics.avgExecutionTime') }}</h5>
+              <p class="display-4">{{ goroutineStats.avgTime || '0ms' }}</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card h-100">
+            <div class="card-body text-center">
+              <h5 class="card-title"><i class="bi bi-lightning-charge me-2"></i>{{ $t('runtimeAnalysis.statistics.maxCallDepth') }}</h5>
+              <p class="display-4">{{ goroutineStats.maxDepth || 0 }}</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card h-100">
+            <div class="card-body text-center">
+              <h5 class="card-title"><i class="bi bi-exclamation-triangle me-2"></i>未完成函数</h5>
+              <p class="display-4">{{ unfinishedFunctions.length || 0 }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 未完成函数列表 -->
+      <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0"><i class="bi bi-exclamation-circle me-2"></i>未完成函数列表</h5>
+          <div class="d-flex align-items-center">
+            <div class="threshold-control me-3">
+              <label class="form-label mb-0 me-2 fw-bold">阻塞阈值：</label>
+              <div class="input-group">
+                <input 
+                  type="number" 
+                  class="form-control" 
+                  v-model="blockingThreshold" 
+                  min="100"
+                  step="100"
+                  style="width: 100px;"
+                >
+                <span class="input-group-text">ms</span>
+                <button class="btn btn-primary" @click="updateBlockingThreshold" title="应用阈值">
+                  <i class="bi bi-check-lg"></i> 应用
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div v-if="loadingUnfinishedFunctions" class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">加载中...</span>
+            </div>
+            <p class="mt-3">正在加载未完成函数数据...</p>
+          </div>
+          <div v-else-if="unfinishedFunctions.length === 0" class="text-center py-5">
+            <i class="bi bi-check-circle text-success display-4"></i>
+            <p class="mt-3">没有检测到未完成函数</p>
+          </div>
+          <div v-else>
+            <div class="alert alert-info mb-3">
+              <i class="bi bi-info-circle me-2"></i>
+              当函数运行时间超过 <strong>{{ blockingThreshold }}ms</strong> 时会被标记为阻塞状态
+            </div>
+            <div class="table-responsive">
+              <table class="table table-hover">
+                <thead class="table-light">
+                  <tr>
+                    <th>函数名称</th>
+                    <th class="text-center">GID</th>
+                    <th class="text-center">已运行时间</th>
+                    <th class="text-center">状态</th>
+                    <th class="text-center">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(func, index) in unfinishedFunctions" :key="index" :class="{'table-warning': func.isBlocking}">
+                    <td><code>{{ func.name }}</code></td>
+                    <td class="text-center">
+                      <span class="badge bg-primary">{{ func.gid }}</span>
+                    </td>
+                    <td class="text-center">{{ func.runningTime || '未知' }}</td>
+                    <td class="text-center">
+                      <span v-if="func.isBlocking" class="badge bg-danger">
+                        <i class="bi bi-exclamation-triangle me-1"></i>阻塞
+                      </span>
+                      <span v-else class="badge bg-secondary">
+                        <i class="bi bi-hourglass-split me-1"></i>运行中
+                      </span>
+                    </td>
+                    <td class="text-center">
+                      <button 
+                        class="btn btn-sm btn-primary"
+                        @click="viewFunctionCallChain(func.functionId, func.gid)"
+                        title="查看调用链并高亮显示"
+                      >
+                        <i class="bi bi-eye me-1"></i>查看
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            
+            <!-- 分页控件 -->
+            <div class="d-flex justify-content-between align-items-center mt-3">
+              <div>
+                <span class="text-muted">共 {{ unfinishedFunctionsTotal }} 个未完成函数</span>
+              </div>
+              <nav aria-label="未完成函数分页">
+                <ul class="pagination mb-0">
+                  <li class="page-item" :class="{ disabled: unfinishedFunctionsPage <= 1 }">
+                    <a class="page-link" href="#" @click.prevent="prevUnfinishedFunctionsPage">
+                      <i class="bi bi-chevron-left"></i>
+                    </a>
+                  </li>
+                  <li v-for="page in displayedUnfinishedFunctionsPages" :key="page" 
+                      class="page-item" :class="{ active: page === unfinishedFunctionsPage }">
+                    <a class="page-link" href="#" @click.prevent="goToUnfinishedFunctionsPage(page)">{{ page }}</a>
+                  </li>
+                  <li class="page-item" :class="{ disabled: unfinishedFunctionsPage >= unfinishedFunctionsTotalPages }">
+                    <a class="page-link" href="#" @click.prevent="nextUnfinishedFunctionsPage">
+                      <i class="bi bi-chevron-right"></i>
+                    </a>
+                  </li>
+                </ul>
+              </nav>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 热点函数分析 -->
+      <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0"><i class="bi bi-fire me-2"></i>{{ $t('runtimeAnalysis.hotFunctions.title') }}</h5>
+          <div class="btn-group">
+            <button class="btn btn-sm btn-outline-primary" @click="sortHotFunctions('calls')" :class="{ active: hotFunctionSortBy === 'calls' }">
+              {{ $t('runtimeAnalysis.hotFunctions.sortByCalls') }}
+            </button>
+            <button class="btn btn-sm btn-outline-primary" @click="sortHotFunctions('time')" :class="{ active: hotFunctionSortBy === 'time' }">
+              {{ $t('runtimeAnalysis.hotFunctions.sortByTime') }}
+            </button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div v-if="loading" class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">{{ $t('runtimeAnalysis.hotFunctions.loading') }}</span>
+            </div>
+            <p class="mt-3">{{ $t('runtimeAnalysis.hotFunctions.loadingData') }}</p>
+          </div>
+          <div v-else-if="hotFunctions.length === 0" class="text-center py-5">
+            <i class="bi bi-exclamation-circle text-warning display-4"></i>
+            <p class="mt-3">{{ $t('runtimeAnalysis.hotFunctions.noData') }}</p>
+          </div>
+          <div v-else>
+            <div class="table-responsive">
+              <table class="table table-hover">
+                <thead>
+                  <tr>
+                    <th>{{ $t('runtimeAnalysis.hotFunctions.functionName') }}</th>
+                    <th class="text-center">{{ $t('runtimeAnalysis.hotFunctions.callCount') }}</th>
+                    <th class="text-center">{{ $t('runtimeAnalysis.hotFunctions.totalTime') }}</th>
+                    <th class="text-center">{{ $t('runtimeAnalysis.hotFunctions.avgTime') }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(func, index) in hotFunctions.slice(0, 10)" :key="index">
+                    <td><code>{{ func.name }}</code></td>
+                    <td class="text-center">
+                      <span class="badge bg-primary">{{ func.callCount }}</span>
+                    </td>
+                    <td class="text-center">{{ func.totalTime }}</td>
+                    <td class="text-center">{{ func.avgTime }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Goroutine列表 -->
+      <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0"><i class="bi bi-list-ul me-2"></i>{{ $t('runtimeAnalysis.goroutineList.title') }}</h5>
+          <div class="pagination-info">
+            <span class="badge bg-secondary">{{ $t('runtimeAnalysis.goroutineList.currentPage') }}: {{ currentPage }} / {{ totalPages }}</span>
+            <div class="btn-group ms-2">
+              <button class="btn btn-sm btn-outline-primary" @click="prevPage" :disabled="currentPage <= 1">
+                <i class="bi bi-chevron-left"></i>
+              </button>
+              <button class="btn btn-sm btn-outline-primary" @click="nextPage" :disabled="currentPage >= totalPages">
+                <i class="bi bi-chevron-right"></i>
               </button>
             </div>
           </div>
         </div>
-      </div>
-      <div class="card-body">
-        <div v-if="loadingUnfinishedFunctions" class="text-center py-5">
-          <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">加载中...</span>
-          </div>
-          <p class="mt-3">正在加载未完成函数数据...</p>
-        </div>
-        <div v-else-if="unfinishedFunctions.length === 0" class="text-center py-5">
-          <i class="bi bi-check-circle text-success display-4"></i>
-          <p class="mt-3">没有检测到未完成函数</p>
-        </div>
-        <div v-else>
-          <div class="alert alert-info mb-3">
-            <i class="bi bi-info-circle me-2"></i>
-            当函数运行时间超过 <strong>{{ blockingThreshold }}ms</strong> 时会被标记为阻塞状态
-          </div>
+        <div class="card-body p-0">
           <div class="table-responsive">
-            <table class="table table-hover">
+            <table class="table table-hover table-striped mb-0">
               <thead class="table-light">
                 <tr>
-                  <th>函数名称</th>
-                  <th class="text-center">GID</th>
-                  <th class="text-center">已运行时间</th>
+                  <th>{{ $t('runtimeAnalysis.goroutineList.gid') }}</th>
+                  <th>{{ $t('runtimeAnalysis.goroutineList.initialFunction') }}</th>
+                  <th class="text-center">{{ $t('runtimeAnalysis.goroutineList.callDepth') }}</th>
+                  <th class="text-center">{{ $t('runtimeAnalysis.goroutineList.executionTime') }}</th>
                   <th class="text-center">状态</th>
-                  <th class="text-center">操作</th>
+                  <th class="text-center">{{ $t('runtimeAnalysis.goroutineList.actions') }}</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(func, index) in unfinishedFunctions" :key="index" :class="{'table-warning': func.isBlocking}">
-                  <td><code>{{ func.name }}</code></td>
+                <tr v-for="result in filteredGIDs" :key="result.GID">
+                  <td><span class="badge bg-primary">{{ result.GID }}</span></td>
+                  <td><code>{{ result.InitialFunc }}</code></td>
+                  <td class="text-center">{{ result.depth || '-' }}</td>
+                  <td class="text-center">{{ result.executionTime || '-' }}</td>
                   <td class="text-center">
-                    <span class="badge bg-primary">{{ func.gid }}</span>
-                  </td>
-                  <td class="text-center">{{ func.runningTime || '未知' }}</td>
-                  <td class="text-center">
-                    <span v-if="func.isBlocking" class="badge bg-danger">
-                      <i class="bi bi-exclamation-triangle me-1"></i>阻塞
-                    </span>
-                    <span v-else class="badge bg-secondary">
-                      <i class="bi bi-hourglass-split me-1"></i>运行中
-                    </span>
+                    <span v-if="result.isFinished" class="badge bg-success">已完成</span>
+                    <span v-else class="badge bg-warning">运行中</span>
                   </td>
                   <td class="text-center">
-                    <button 
-                      class="btn btn-sm btn-primary"
-                      @click="viewFunctionCallChain(func.functionId, func.gid)"
-                      title="查看调用链并高亮显示"
-                    >
-                      <i class="bi bi-eye me-1"></i>查看
-                    </button>
+                    <template v-if="result.GID">
+                      <div class="btn-group">
+                        <router-link 
+                          :to="{ name: 'TraceDetails', params: { gid: result.GID } }" 
+                          class="btn btn-sm btn-primary"
+                          :title="$t('runtimeAnalysis.goroutineList.details')"
+                        >
+                          <i class="bi bi-eye"></i> {{ $t('runtimeAnalysis.goroutineList.details') }}
+                        </router-link>
+                        <button 
+                          class="btn btn-sm btn-success"
+                          :title="$t('runtimeAnalysis.goroutineList.callGraph')"
+                          @click="showFunctionCallGraph(result.GID)"
+                        >
+                          <i class="bi bi-graph-up"></i> {{ $t('runtimeAnalysis.goroutineList.callGraph') }}
+                        </button>
+                      </div>
+                    </template>
                   </td>
                 </tr>
-              </tbody>
-            </table>
-          </div>
-          
-          <!-- 分页控件 -->
-          <div class="d-flex justify-content-between align-items-center mt-3">
-            <div>
-              <span class="text-muted">共 {{ unfinishedFunctionsTotal }} 个未完成函数</span>
-            </div>
-            <nav aria-label="未完成函数分页">
-              <ul class="pagination mb-0">
-                <li class="page-item" :class="{ disabled: unfinishedFunctionsPage <= 1 }">
-                  <a class="page-link" href="#" @click.prevent="prevUnfinishedFunctionsPage">
-                    <i class="bi bi-chevron-left"></i>
-                  </a>
-                </li>
-                <li v-for="page in displayedUnfinishedFunctionsPages" :key="page" 
-                    class="page-item" :class="{ active: page === unfinishedFunctionsPage }">
-                  <a class="page-link" href="#" @click.prevent="goToUnfinishedFunctionsPage(page)">{{ page }}</a>
-                </li>
-                <li class="page-item" :class="{ disabled: unfinishedFunctionsPage >= unfinishedFunctionsTotalPages }">
-                  <a class="page-link" href="#" @click.prevent="nextUnfinishedFunctionsPage">
-                    <i class="bi bi-chevron-right"></i>
-                  </a>
-                </li>
-              </ul>
-            </nav>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 热点函数分析 -->
-    <div class="card mb-4">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="bi bi-fire me-2"></i>{{ $t('runtimeAnalysis.hotFunctions.title') }}</h5>
-        <div class="btn-group">
-          <button class="btn btn-sm btn-outline-primary" @click="sortHotFunctions('calls')" :class="{ active: hotFunctionSortBy === 'calls' }">
-            {{ $t('runtimeAnalysis.hotFunctions.sortByCalls') }}
-          </button>
-          <button class="btn btn-sm btn-outline-primary" @click="sortHotFunctions('time')" :class="{ active: hotFunctionSortBy === 'time' }">
-            {{ $t('runtimeAnalysis.hotFunctions.sortByTime') }}
-          </button>
-        </div>
-      </div>
-      <div class="card-body">
-        <div v-if="loading" class="text-center py-5">
-          <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">{{ $t('runtimeAnalysis.hotFunctions.loading') }}</span>
-          </div>
-          <p class="mt-3">{{ $t('runtimeAnalysis.hotFunctions.loadingData') }}</p>
-        </div>
-        <div v-else-if="hotFunctions.length === 0" class="text-center py-5">
-          <i class="bi bi-exclamation-circle text-warning display-4"></i>
-          <p class="mt-3">{{ $t('runtimeAnalysis.hotFunctions.noData') }}</p>
-        </div>
-        <div v-else>
-          <div class="table-responsive">
-            <table class="table table-hover">
-              <thead>
-                <tr>
-                  <th>{{ $t('runtimeAnalysis.hotFunctions.functionName') }}</th>
-                  <th class="text-center">{{ $t('runtimeAnalysis.hotFunctions.callCount') }}</th>
-                  <th class="text-center">{{ $t('runtimeAnalysis.hotFunctions.totalTime') }}</th>
-                  <th class="text-center">{{ $t('runtimeAnalysis.hotFunctions.avgTime') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(func, index) in hotFunctions.slice(0, 10)" :key="index">
-                  <td><code>{{ func.name }}</code></td>
-                  <td class="text-center">
-                    <span class="badge bg-primary">{{ func.callCount }}</span>
-                  </td>
-                  <td class="text-center">{{ func.totalTime }}</td>
-                  <td class="text-center">{{ func.avgTime }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Goroutine列表 -->
-    <div class="card mb-4">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="bi bi-list-ul me-2"></i>{{ $t('runtimeAnalysis.goroutineList.title') }}</h5>
-        <div class="pagination-info">
-          <span class="badge bg-secondary">{{ $t('runtimeAnalysis.goroutineList.currentPage') }}: {{ currentPage }} / {{ totalPages }}</span>
-          <div class="btn-group ms-2">
-            <button class="btn btn-sm btn-outline-primary" @click="prevPage" :disabled="currentPage <= 1">
-              <i class="bi bi-chevron-left"></i>
-            </button>
-            <button class="btn btn-sm btn-outline-primary" @click="nextPage" :disabled="currentPage >= totalPages">
-              <i class="bi bi-chevron-right"></i>
-            </button>
-          </div>
-        </div>
-      </div>
-      <div class="card-body p-0">
-        <div class="table-responsive">
-          <table class="table table-hover table-striped mb-0">
-            <thead class="table-light">
-              <tr>
-                <th>{{ $t('runtimeAnalysis.goroutineList.gid') }}</th>
-                <th>{{ $t('runtimeAnalysis.goroutineList.initialFunction') }}</th>
-                <th class="text-center">{{ $t('runtimeAnalysis.goroutineList.callDepth') }}</th>
-                <th class="text-center">{{ $t('runtimeAnalysis.goroutineList.executionTime') }}</th>
-                <th class="text-center">状态</th>
-                <th class="text-center">{{ $t('runtimeAnalysis.goroutineList.actions') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="result in filteredGIDs" :key="result.GID">
-                <td><span class="badge bg-primary">{{ result.GID }}</span></td>
-                <td><code>{{ result.InitialFunc }}</code></td>
-                <td class="text-center">{{ result.depth || '-' }}</td>
-                <td class="text-center">{{ result.executionTime || '-' }}</td>
-                <td class="text-center">
-                  <span v-if="result.isFinished" class="badge bg-success">已完成</span>
-                  <span v-else class="badge bg-warning">运行中</span>
-                </td>
-                <td class="text-center">
-                  <template v-if="result.GID">
-                    <div class="btn-group">
-                      <router-link 
-                        :to="{ name: 'TraceDetails', params: { gid: result.GID } }" 
-                        class="btn btn-sm btn-primary"
-                        :title="$t('runtimeAnalysis.goroutineList.details')"
-                      >
-                        <i class="bi bi-eye"></i> {{ $t('runtimeAnalysis.goroutineList.details') }}
-                      </router-link>
-                      <button 
-                        class="btn btn-sm btn-success"
-                        :title="$t('runtimeAnalysis.goroutineList.callGraph')"
-                        @click="showFunctionCallGraph(result.GID)"
-                      >
-                        <i class="bi bi-graph-up"></i> {{ $t('runtimeAnalysis.goroutineList.callGraph') }}
-                      </button>
+                <!-- 无数据时显示 -->
+                <tr v-if="filteredGIDs.length === 0">
+                  <td colspan="6" class="text-center py-4">
+                    <div class="alert alert-info mb-0">
+                      <i class="bi bi-info-circle me-2"></i>
+                      {{ $t('runtimeAnalysis.goroutineList.noData') }}
                     </div>
-                  </template>
-                </td>
-              </tr>
-              <!-- 无数据时显示 -->
-              <tr v-if="filteredGIDs.length === 0">
-                <td colspan="6" class="text-center py-4">
-                  <div class="alert alert-info mb-0">
-                    <i class="bi bi-info-circle me-2"></i>
-                    {{ $t('runtimeAnalysis.goroutineList.noData') }}
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card-footer">
+          <!-- 分页控件 -->
+          <nav aria-label="Page navigation">
+            <ul class="pagination justify-content-center mb-0">
+              <li class="page-item" :class="{ disabled: currentPage <= 1 }">
+                <a class="page-link" href="#" @click.prevent="prevPage">{{ $t('runtimeAnalysis.goroutineList.prevPage') }}</a>
+              </li>
+              <li v-for="page in displayedPages" :key="page" class="page-item" :class="{ active: page === currentPage }">
+                <a class="page-link" href="#" @click.prevent="goToPage(page)">{{ page }}</a>
+              </li>
+              <li class="page-item" :class="{ disabled: currentPage >= totalPages }">
+                <a class="page-link" href="#" @click.prevent="nextPage">{{ $t('runtimeAnalysis.goroutineList.nextPage') }}</a>
+              </li>
+            </ul>
+          </nav>
         </div>
       </div>
-      <div class="card-footer">
-        <!-- 分页控件 -->
-        <nav aria-label="Page navigation">
-          <ul class="pagination justify-content-center mb-0">
-            <li class="page-item" :class="{ disabled: currentPage <= 1 }">
-              <a class="page-link" href="#" @click.prevent="prevPage">{{ $t('runtimeAnalysis.goroutineList.prevPage') }}</a>
-            </li>
-            <li v-for="page in displayedPages" :key="page" class="page-item" :class="{ active: page === currentPage }">
-              <a class="page-link" href="#" @click.prevent="goToPage(page)">{{ page }}</a>
-            </li>
-            <li class="page-item" :class="{ disabled: currentPage >= totalPages }">
-              <a class="page-link" href="#" @click.prevent="nextPage">{{ $t('runtimeAnalysis.goroutineList.nextPage') }}</a>
-            </li>
-          </ul>
-        </nav>
-      </div>
-    </div>
 
-    <!-- 函数调用关系图组件 -->
-    <function-call-graph
-      v-if="showChart"
-      :visible="showChart"
-      :gid="currentGid"
-      :dbpath="getCurrentDbPath()"
-      @update:visible="showChart = $event"
-      @error="handleChartError"
-      :key="`chart-${currentGid}-${chartRenderCount}`"
-      :use-mock-data="testMode"
-    />
-  
+      <!-- 函数调用关系图组件 -->
+      <function-call-graph
+        v-if="showChart"
+        :visible="showChart"
+        :gid="currentGid"
+        :dbpath="getCurrentDbPath()"
+        @update:visible="showChart = $event"
+        @error="handleChartError"
+        :key="`chart-${currentGid}-${chartRenderCount}`"
+        :use-mock-data="testMode"
+      />
+    </div>
   </div>
 </template>
 
@@ -377,6 +526,41 @@ export default {
       blockingThreshold: 1000, // 阻塞时间阈值（毫秒），默认1秒
       loadingUnfinishedFunctions: false, // 加载状态
       highlightedFunctionId: null, // 高亮显示的函数ID
+      
+      // 文件列表相关
+      showFileList: true,
+      files: [],
+      filesPage: 1,
+      filesLimit: 10,
+      filesTotal: 0,
+      filesTotalPages: 1,
+      loadingFiles: false,
+      currentFileName: '',
+      localProjectPath: '', // 添加本地路径变量
+      
+      // 文件上传相关
+      showUploadModal: false,
+      uploadForm: {
+        file: null,
+        description: '',
+        contentType: ''
+      },
+      chunkSize: 2, // 默认分块大小，单位MB
+      uploadStatus: {
+        uploading: false,
+        progress: 0,
+        currentChunk: 0,
+        totalChunks: 0,
+        fileId: ''
+      },
+      
+      // 消息提示
+      message: {
+        show: false,
+        content: '',
+        type: 'info', // info, success, error, warning
+        timer: null
+      }
     };
   },
   mounted() {
@@ -391,7 +575,16 @@ export default {
       }
     }
     
-    this.initializeData();
+    // 初始化本地路径变量
+    this.localProjectPath = this.projectPath;
+    
+    // 检查是否有项目路径，如果有则不显示文件列表
+    if (this.localProjectPath) {
+      this.showFileList = false;
+      this.initializeData();
+    } else {
+      this.fetchFiles();
+    }
     
     document.addEventListener('click', this.handleDocumentClick);
     window.addEventListener('resize', this.updateInputPosition);
@@ -402,7 +595,11 @@ export default {
     // 添加路由变化监听，确保组件在重新激活时能正确加载数据
     this.$router.afterEach(() => {
       if (this.isComponentMounted) {
-        this.initializeData();
+        if (this.showFileList) {
+          this.fetchFiles();
+        } else {
+          this.initializeData();
+        }
       }
     });
   },
@@ -454,11 +651,45 @@ export default {
       }
       
       return pages;
+    },
+    displayedFilesPages() {
+      const pages = [];
+      const maxVisiblePages = 5;
+      let startPage = Math.max(1, this.filesPage - Math.floor(maxVisiblePages / 2));
+      let endPage = Math.min(this.filesTotalPages, startPage + maxVisiblePages - 1);
+      
+      if (endPage - startPage + 1 < maxVisiblePages) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+      }
+      
+      for (let i = startPage; i <= endPage; i++) {
+        pages.push(i);
+      }
+      
+      return pages;
+    },
+    
+    // 消息图标
+    messageIcon() {
+      const icons = {
+        info: 'bi-info-circle',
+        success: 'bi-check-circle',
+        error: 'bi-exclamation-circle',
+        warning: 'bi-exclamation-triangle'
+      };
+      return icons[this.message.type] || icons.info;
     }
   },
   watch: {
     showAllGoroutines() {
       this.fetchGIDs();
+    },
+    projectPath(newVal) {
+      this.localProjectPath = newVal;
+      if (newVal) {
+        this.showFileList = false;
+        this.initializeData();
+      }
     }
   },
   methods: {
@@ -782,6 +1013,9 @@ export default {
         if (this.projectPathInput) {
           this.dbpath = this.projectPathInput;
           console.log('从项目路径设置数据库路径:', this.dbpath);
+        } else if (this.localProjectPath) {
+          this.dbpath = this.localProjectPath;
+          console.log('从本地项目路径设置数据库路径:', this.dbpath);
         } else {
           console.error('数据库路径未设置，无法获取调用图');
           alert('请先在上方输入Go项目路径');
@@ -871,14 +1105,14 @@ export default {
     
     handleChartError(errorMessage) {
       console.error('图表错误:', errorMessage);
-      this.$message.error(errorMessage);
+      this.showMessage(errorMessage, 'error');
     },
 
     // 获取当前数据库路径
     getCurrentDbPath() {
       console.log('获取数据库路径，当前状态:', {
         dbpath: this.dbpath,
-        projectPath: this.projectPath
+        projectPath: this.localProjectPath
       });
       
       // 如果已经设置了数据库路径，直接返回
@@ -888,8 +1122,8 @@ export default {
       }
       
       // 否则使用项目路径作为数据库路径
-      if (this.projectPath) {
-        this.dbpath = this.projectPath;
+      if (this.localProjectPath) {
+        this.dbpath = this.localProjectPath;
         console.log('使用项目路径作为数据库路径:', this.dbpath);
         return this.dbpath;
       }
@@ -898,7 +1132,6 @@ export default {
       console.warn('数据库路径为空');
       return '';
     },
-
 
     // 处理语言变化
     handleLanguageChange(event) {
@@ -959,7 +1192,7 @@ export default {
         console.log('未完成函数总页数:', this.unfinishedFunctionsTotalPages);
       } catch (error) {
         console.error('获取未完成函数列表失败:', error);
-        this.$message?.error?.('获取未完成函数列表失败') || alert('获取未完成函数列表失败');
+        this.showMessage('获取未完成函数列表失败', 'error');
         this.unfinishedFunctions = [];
         this.unfinishedFunctionsTotal = 0;
         this.unfinishedFunctionsTotalPages = 1;
@@ -970,25 +1203,18 @@ export default {
     
     // 更新阻塞阈值并刷新未完成函数列表
     updateBlockingThreshold() {
-      // 验证输入是否为有效数字
       const threshold = parseInt(this.blockingThreshold);
       if (isNaN(threshold) || threshold < 0) {
-        this.$message?.warning?.('无效的阻塞阈值') || alert('无效的阻塞阈值');
+        this.showMessage('无效的阻塞阈值', 'warning');
         this.blockingThreshold = 1000; // 重置为默认值
         return;
       }
       
-      // 设置最小值
-      if (threshold < 100) {
-        this.blockingThreshold = 100;
-      }
-      
       // 保存到本地存储
-      localStorage.setItem('blockingThreshold', this.blockingThreshold.toString());
+      localStorage.setItem('blockingThreshold', threshold.toString());
       
       // 显示提示信息
-      this.$message?.success?.(`阻塞阈值已更新为 ${this.blockingThreshold}ms`) || 
-        alert(`阻塞阈值已更新为 ${this.blockingThreshold}ms`);
+      this.showMessage(`阻塞阈值已更新为 ${this.blockingThreshold}ms`, 'success');
       
       // 重置页码并刷新未完成函数列表
       this.unfinishedFunctionsPage = 1;
@@ -1030,6 +1256,177 @@ export default {
         params: { gid: gid }
       });
     },
+
+    // 清除路径并返回文件列表
+    clearPath() {
+      this.dbpath = '';
+      this.localProjectPath = '';
+      this.currentFileName = '';
+      this.showFileList = true;
+      this.fetchFiles();
+    },
+
+    // 获取文件列表
+    async fetchFiles() {
+      this.loadingFiles = true;
+      try {
+        const response = await axios.get('/api/files', {
+          params: {
+            fileType: 2, // 运行时文件类型
+            limit: this.filesLimit,
+            offset: (this.filesPage - 1) * this.filesLimit
+          }
+        });
+        
+        this.files = response.data.files || [];
+        this.filesTotal = response.data.total || 0;
+        this.filesTotalPages = Math.ceil(this.filesTotal / this.filesLimit) || 1;
+      } catch (error) {
+        console.error('获取文件列表失败:', error);
+        this.showMessage('获取文件列表失败', 'error');
+        this.files = [];
+        this.filesTotal = 0;
+        this.filesTotalPages = 1;
+      } finally {
+        this.loadingFiles = false;
+      }
+    },
+    
+    // 切换文件列表页码
+    changePage(page) {
+      if (page < 1 || page > this.filesTotalPages) return;
+      this.filesPage = page;
+      this.fetchFiles();
+    },
+    
+    // 选择文件
+    selectFile(file) {
+      this.dbpath = file.path;
+      this.currentFileName = file.name;
+      this.showFileList = false;
+      this.initializeData();
+    },
+    
+    // 处理文件选择
+    handleFileChange(event) {
+      const file = event.target.files[0];
+      if (file) {
+        this.uploadForm.file = file;
+        this.uploadForm.contentType = file.type || 'application/octet-stream';
+      }
+    },
+    
+    // 上传文件
+    async uploadFile() {
+      if (!this.uploadForm.file) {
+        this.showMessage('请选择文件', 'error');
+        return;
+      }
+      
+      const file = this.uploadForm.file;
+      const chunkSizeBytes = this.chunkSize * 1024 * 1024; // 转换为字节
+      const totalChunks = Math.ceil(file.size / chunkSizeBytes);
+      const fileId = Date.now().toString(); // 生成唯一文件ID
+      
+      this.uploadStatus = {
+        uploading: true,
+        progress: 0,
+        currentChunk: 0,
+        totalChunks: totalChunks,
+        fileId: fileId
+      };
+      
+      try {
+        for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+          const start = chunkIndex * chunkSizeBytes;
+          const end = Math.min(start + chunkSizeBytes, file.size);
+          const chunk = file.slice(start, end);
+          
+          const formData = new FormData();
+          formData.append('file', chunk);
+          formData.append('file_id', fileId);
+          formData.append('chunk_index', chunkIndex.toString());
+          formData.append('total_chunks', totalChunks.toString());
+          formData.append('file_name', file.name);
+          formData.append('description', this.uploadForm.description);
+          formData.append('content_type', this.uploadForm.contentType);
+          
+          await axios.post('/runtime/file/upload', formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data'
+            },
+            onUploadProgress: (progressEvent) => {
+              // 计算当前块的上传进度
+              const chunkProgress = progressEvent.loaded / progressEvent.total;
+              // 计算总体进度
+              const totalProgress = ((chunkIndex + chunkProgress) / totalChunks) * 100;
+              this.uploadStatus.progress = Math.round(totalProgress);
+            }
+          });
+          
+          this.uploadStatus.currentChunk = chunkIndex + 1;
+          this.uploadStatus.progress = Math.round(((chunkIndex + 1) / totalChunks) * 100);
+        }
+        
+        this.showMessage('文件上传成功', 'success');
+        this.showUploadModal = false;
+        this.fetchFiles(); // 刷新文件列表
+        
+        // 重置表单
+        this.uploadForm = {
+          file: null,
+          description: '',
+          contentType: ''
+        };
+        document.getElementById('file').value = '';
+      } catch (error) {
+        console.error('文件上传失败:', error);
+        this.showMessage('文件上传失败: ' + (error.response?.data?.message || error.message || '未知错误'), 'error');
+      } finally {
+        this.uploadStatus.uploading = false;
+      }
+    },
+    
+    // 格式化文件大小
+    formatFileSize(size) {
+      if (size < 1024) {
+        return size + ' B';
+      } else if (size < 1024 * 1024) {
+        return (size / 1024).toFixed(2) + ' KB';
+      } else if (size < 1024 * 1024 * 1024) {
+        return (size / (1024 * 1024)).toFixed(2) + ' MB';
+      } else {
+        return (size / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+      }
+    },
+    
+    // 格式化日期
+    formatDate(timestamp) {
+      if (!timestamp) return '';
+      const date = new Date(timestamp * 1000);
+      return date.toLocaleString();
+    },
+    
+    // 显示消息
+    showMessage(content, type = 'info', duration = 3000) {
+      // 清除之前的定时器
+      if (this.message.timer) {
+        clearTimeout(this.message.timer);
+      }
+      
+      // 设置消息内容
+      this.message = {
+        show: true,
+        content,
+        type,
+        timer: null
+      };
+      
+      // 设置定时器，自动关闭消息
+      this.message.timer = setTimeout(() => {
+        this.message.show = false;
+      }, duration);
+    }
   }
 };
 </script>
@@ -1162,6 +1559,84 @@ export default {
   
   .threshold-control .input-group {
     width: 100%;
+  }
+}
+
+/* 文件列表样式 */
+.file-list-container {
+  margin-top: 20px;
+}
+
+/* 模态框样式 */
+.modal {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-backdrop {
+  z-index: 1040;
+}
+
+.modal {
+  z-index: 1050;
+}
+
+/* 消息提示样式 */
+.message-container {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  min-width: 300px;
+  max-width: 80%;
+}
+
+.message-box {
+  padding: 10px 20px;
+  border-radius: 4px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  animation: message-fade-in 0.3s;
+}
+
+.message-box i {
+  margin-right: 10px;
+  font-size: 16px;
+}
+
+.message-info {
+  background-color: #f4f4f5;
+  border: 1px solid #ebeef5;
+  color: #909399;
+}
+
+.message-success {
+  background-color: #f0f9eb;
+  border: 1px solid #e1f3d8;
+  color: #67c23a;
+}
+
+.message-warning {
+  background-color: #fdf6ec;
+  border: 1px solid #faecd8;
+  color: #e6a23c;
+}
+
+.message-error {
+  background-color: #fef0f0;
+  border: 1px solid #fde2e2;
+  color: #f56c6c;
+}
+
+@keyframes message-fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 </style> 
