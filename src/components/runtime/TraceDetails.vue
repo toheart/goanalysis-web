@@ -220,6 +220,13 @@ export default {
       }
     }
   },
+  created() {
+    // 从URL查询参数中获取highlight值
+    if (this.$route.query.highlight) {
+      this.highlightedFunctionId = Number(this.$route.query.highlight);
+      console.log('从URL获取高亮函数ID:', this.highlightedFunctionId);
+    }
+  },
   mounted() {
     this.checkProjectPath();
     this.modal = new Modal(document.getElementById('paramsModal'));
@@ -538,6 +545,22 @@ export default {
     
     // 获取高亮函数ID
     getHighlightedFunctionId() {
+      // 优先使用URL查询参数中的highlight值
+      if (this.$route.query.highlight) {
+        this.highlightedFunctionId = Number(this.$route.query.highlight);
+        console.log('从URL获取高亮函数ID:', this.highlightedFunctionId);
+        
+        // 数据加载完成后滚动到高亮函数
+        this.$nextTick(() => {
+          setTimeout(() => {
+            this.scrollToHighlightedFunction();
+            this.expandToHighlightedFunction();
+          }, 500);
+        });
+        return;
+      }
+      
+      // 如果URL中没有，则尝试从localStorage获取
       const highlightedId = localStorage.getItem('highlightedFunctionId');
       if (highlightedId) {
         this.highlightedFunctionId = Number(highlightedId);
@@ -549,6 +572,7 @@ export default {
         this.$nextTick(() => {
           setTimeout(() => {
             this.scrollToHighlightedFunction();
+            this.expandToHighlightedFunction();
           }, 500);
         });
       }
@@ -567,6 +591,29 @@ export default {
     // 检查函数是否被高亮
     isHighlighted(id) {
       return this.highlightedFunctionId && Number(id) === Number(this.highlightedFunctionId);
+    },
+    
+    // 展开到高亮函数所在的路径
+    expandToHighlightedFunction() {
+      if (!this.highlightedFunctionId || !this.traceData) return;
+      
+      // 查找高亮函数的索引
+      const highlightIndex = this.findNodeIndexById(this.highlightedFunctionId);
+      if (highlightIndex === -1) return;
+      
+      // 获取该函数的所有祖先节点，并确保它们都展开
+      const node = Object.values(this.traceData)[highlightIndex];
+      if (!node) return;
+      
+      const ancestors = this.getAncestors(node);
+      
+      // 确保所有祖先节点都展开
+      ancestors.forEach(ancestorIndex => {
+        this.collapsedNodes.delete(ancestorIndex);
+      });
+      
+      // 强制更新视图
+      this.$forceUpdate();
     },
   },
   watch: {

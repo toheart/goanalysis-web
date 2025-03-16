@@ -164,14 +164,15 @@ export default {
       originalApiData: null,
       dataFormatInfo: '',
       alternativeFormatIndex: 0,
-      resizeTimer: null
+      resizeTimer: null,
+      timers: []
     };
   },
   watch: {
     visible(newVal) {
       if (newVal) {
         // 延迟初始化图表，确保模态框已完全显示
-        setTimeout(() => {
+        this.createTimer(() => {
           this.initChart();
         }, 300);
       } else {
@@ -181,7 +182,7 @@ export default {
     gid(newVal) {
       if (this.visible && newVal) {
         // 延迟初始化图表，确保模态框已完全显示
-        setTimeout(() => {
+        this.createTimer(() => {
           this.initChart();
         }, 300);
       }
@@ -190,7 +191,7 @@ export default {
   mounted() {
     if (this.visible) {
       // 延迟初始化图表，确保模态框已完全显示
-      setTimeout(() => {
+      this.createTimer(() => {
         this.initChart();
       }, 300);
     }
@@ -202,6 +203,13 @@ export default {
     window.removeEventListener('resize', this.handleResize);
   },
   methods: {
+    // 辅助方法：创建并跟踪定时器
+    createTimer(callback, delay) {
+      const timer = setTimeout(callback, delay);
+      this.timers.push(timer);
+      return timer;
+    },
+    
     async initChart() {
       console.log('开始初始化图表');
       this.loading = true;
@@ -229,7 +237,7 @@ export default {
         // 确保 DOM 已更新
         this.$nextTick(() => {
           // 使用更长的延迟，确保模态框完全显示并且 DOM 已渲染
-          setTimeout(() => {
+          this.createTimer(() => {
             console.log('DOM 已更新，开始创建图表');
             
             // 确保图表容器可见
@@ -238,16 +246,15 @@ export default {
               chartContainer.style.display = 'block';
               
               // 延迟一小段时间，确保样式已应用
-              setTimeout(() => {
+              this.createTimer(() => {
                 this.createChart();
-                this.loading = false;
               }, 100);
             } else {
-              console.error('图表容器不存在，无法创建图表');
-              this.error = '无法创建图表：容器元素不存在';
+              console.error('图表容器不存在');
+              this.error = '图表容器不存在';
               this.loading = false;
             }
-          }, 500);
+          }, 200);
         });
       } catch (err) {
         console.error('加载调用图数据失败:', err);
@@ -267,34 +274,36 @@ export default {
       try {
         console.log(`获取GID ${this.gid}的调用图数据，数据库路径: ${this.dbpath}`);
         
-        // 后端API应该返回以下格式的数据:
-        // {
-        //   nodes: [
-        //     {
-        //       id: "函数唯一标识符",
-        //       name: "完整函数名称",
-        //       package: "包路径",
-        //       callCount: 调用次数,
-        //       timeCost: "执行时间，如10ms",
-        //       category: 分类编号
-        //     },
-        //     ...
-        //   ],
-        //   edges: [
-        //     {
-        //       source: "源节点ID",
-        //       target: "目标节点ID",
-        //       value: 权重值,
-        //       callCount: 调用次数,
-        //       timeCost: "执行时间"
-        //     },
-        //     ...
-        //   ]
-        // }
-        const response = await axios.post('/api/runtime/traces/graph', {
-          gid: this.gid,
-          dbpath: this.dbpath
-        });
+        let response;
+        
+        // 使用正确的树状图API
+        if (this.currentLayout === 'tree') {
+          console.log('使用树状图接口获取数据');
+          response = await axios.post('/api/runtime/tree-graph/gid', {
+            gid: this.gid,
+            dbPath: this.dbpath
+          });
+          
+          // 检查响应数据格式
+          if (!response.data || !response.data.trees) {
+            throw new Error('树状图API返回数据格式不正确');
+          }
+          
+          // 保存原始响应数据，用于调试
+          this.originalApiData = JSON.parse(JSON.stringify(response.data));
+          console.log('树状图API原始响应数据:', JSON.stringify(this.originalApiData));
+          
+          // 将树状图数据转换为图形数据格式
+          const graphData = this.convertTreeToGraphData(response.data.trees);
+          this.graphData = graphData;
+          return;
+        } else {
+          // 使用原有的图形数据API
+          response = await axios.post('/api/runtime/traces/graph', {
+            gid: this.gid,
+            dbpath: this.dbpath
+          });
+        }
         
         // 检查响应数据格式
         if (!response.data) {
@@ -674,13 +683,11 @@ export default {
         this.error = '无法创建图表：容器元素不存在';
         this.loading = false;
         
-        // 延迟重试
-        setTimeout(() => {
-          console.log('延迟重试创建图表...');
-          if (this.$refs.chartContainer) {
-            this.createChart();
-          }
-        }, 1000);
+        // 延迟重试，等待样式应用
+        this.createTimer(() => {
+          console.log('容器尺寸已调整，重试创建图表...');
+          this.createChart();
+        }, 500);
         return;
       }
       
@@ -697,7 +704,7 @@ export default {
         chartContainer.style.display = 'block';
         
         // 延迟重试，等待样式应用
-        setTimeout(() => {
+        this.createTimer(() => {
           console.log('容器尺寸已调整，重试创建图表...');
           this.createChart();
         }, 500);
@@ -735,7 +742,7 @@ export default {
         
         // 如果是因为容器问题，尝试延迟重试
         if (error.message.includes('container') || error.message.includes('DOM')) {
-          setTimeout(() => {
+          this.createTimer(() => {
             console.log('因容器问题创建失败，延迟重试...');
             this.createChart();
           }, 1000);
@@ -957,69 +964,301 @@ export default {
         };
       }
       
-      // 为树形布局找到根节点
-      const rootNode = this.findRootNode(nodes, edges);
+      // 获取原始树状图数据
+      if (!this.originalApiData || !this.originalApiData.trees) {
+        console.warn('没有找到原始树状图数据，使用转换后的数据');
+        return this.getFallbackTreeLayoutOption(nodes, edges);
+      }
+      
+      console.log('使用原始树数据创建树状图', this.originalApiData.trees);
       
       return {
         title: {
           text: '函数调用关系图 (树形布局)',
+          subtext: `GID: ${this.gid}`,
+          left: 'center'
+        },
+        tooltip: {
+          trigger: 'item',
+          formatter: (params) => {
+            return `<div style="font-size:12px;">
+              <div><strong>函数:</strong> ${params.data.name || '未命名'}</div>
+              <div><strong>ID:</strong> ${params.data.value || '未知'}</div>
+              ${params.data.timeCost ? `<div><strong>执行时间:</strong> ${params.data.timeCost}</div>` : ''}
+              ${params.data.callCount ? `<div><strong>调用次数:</strong> ${params.data.callCount}</div>` : ''}
+            </div>`;
+          }
+        },
+        toolbox: {
+          show: true,
+          feature: {
+            saveAsImage: {
+              show: true,
+              title: '下载图片',
+              name: `函数调用树_GID${this.gid}_${new Date().getTime()}`,
+              pixelRatio: 2
+            },
+            restore: {
+              show: true,
+              title: '重置视图'
+            },
+            dataZoom: {
+              show: true,
+              title: {
+                zoom: '区域缩放',
+                back: '还原缩放'
+              }
+            }
+          },
+          right: 20,
+          top: 20
+        },
+        series: [{
+          type: 'tree',
+          name: '函数调用',
+          data: this.processTreeData(this.originalApiData.trees),
+          top: '8%',
+          bottom: '8%',
+          left: '8%',
+          right: '20%',
+          symbolSize: 12,
+          orient: 'LR', // 从左到右布局
+          initialTreeDepth: 3, // 初始展开层级
+          
+          label: {
+            position: 'right',
+            verticalAlign: 'middle',
+            align: 'left',
+            fontSize: 12,
+            formatter: (params) => {
+              return this.formatFunctionName(params.data.name) || '未命名';
+            },
+            backgroundColor: 'rgba(255,255,255,0.7)',
+            padding: [4, 7],
+            borderRadius: 3
+          },
+          
+          leaves: {
+            label: {
+              position: 'right',
+              verticalAlign: 'middle',
+              align: 'left'
+            }
+          },
+          
+          emphasis: {
+            focus: 'descendant',
+            itemStyle: {
+              shadowBlur: 10,
+              shadowColor: 'rgba(0,0,0,0.3)'
+            }
+          },
+          
+          expandAndCollapse: true,
+          animationDuration: 550,
+          animationDurationUpdate: 750,
+          
+          lineStyle: {
+            width: 1.5,
+            curveness: 0.2,
+            color: '#91cc75',
+            opacity: 0.8
+          },
+          
+          itemStyle: {
+            borderWidth: 1,
+            color: (params) => {
+              // 根据节点深度或其他属性设置颜色
+              const colors = [
+                '#5470c6', '#91cc75', '#fac858', '#ee6666',
+                '#73c0de', '#3ba272', '#fc8452', '#9a60b4'
+              ];
+              const depth = params.data.depth || 0;
+              return colors[depth % colors.length];
+            }
+          },
+          
+          // 启用漫游
+          roam: true,
+        }]
+      };
+    },
+    
+    // 处理树状图数据，添加深度信息等
+    processTreeData(trees) {
+      if (!trees || !Array.isArray(trees)) return [];
+      
+      const processNode = (node, depth = 0) => {
+        if (!node) return null;
+        
+        // 添加深度信息
+        node.depth = depth;
+        
+        // 处理子节点
+        if (node.children && Array.isArray(node.children)) {
+          node.children = node.children.map(child => processNode(child, depth + 1));
+        }
+        
+        return node;
+      };
+      
+      return trees.map(tree => processNode(tree));
+    },
+    
+    // 添加备用的树布局方法，当没有原始树数据时使用
+    getFallbackTreeLayoutOption(nodes, edges) {
+      // 为树形布局找到根节点
+      const rootNode = this.findRootNode(nodes, edges);
+      
+      // 将节点和边转换为树状结构
+      const treeData = this.convertGraphToTree(nodes, edges, rootNode ? rootNode.id : nodes[0].id);
+      
+      return {
+        title: {
+          text: '函数调用关系图 (树形布局 - 转换)',
           subtext: `GID: ${this.gid} - 根节点: ${rootNode ? rootNode.name : '未知'} - 节点数: ${nodes.length}`,
           left: 'center'
         },
         tooltip: {
           trigger: 'item',
-          confine: true
+          formatter: (params) => {
+            return `<div style="font-size:12px;">
+              <div><strong>函数:</strong> ${params.data.name || '未命名'}</div>
+              <div><strong>ID:</strong> ${params.data.id || '未知'}</div>
+              ${params.data.timeCost ? `<div><strong>执行时间:</strong> ${params.data.timeCost}</div>` : ''}
+              ${params.data.callCount ? `<div><strong>调用次数:</strong> ${params.data.callCount}</div>` : ''}
+            </div>`;
+          }
         },
-        // 添加图表右上角的提示信息
-        graphic: [
-          {
-            type: 'text',
-            right: 20,
-            top: 20,
-            style: {
-              text: '提示: 可拖拽节点调整位置',
-              fontSize: 12,
-              fill: '#999'
+        toolbox: {
+          show: true,
+          feature: {
+            saveAsImage: {
+              show: true,
+              title: '下载图片',
+              name: `函数调用树_GID${this.gid}_${new Date().getTime()}`,
+              pixelRatio: 2
+            },
+            restore: {
+              show: true,
+              title: '重置视图'
+            },
+            dataZoom: {
+              show: true,
+              title: {
+                zoom: '区域缩放',
+                back: '还原缩放'
+              }
             }
-          }
-        ],
-        animationDuration: 1500,
-        animationEasingUpdate: 'quinticInOut',
+          },
+          right: 20,
+          top: 20
+        },
         series: [{
+          type: 'tree',
           name: '函数调用',
-          type: 'graph',
-          layout: 'force',
-          data: nodes,
-          links: edges,
-          roam: true,
-          draggable: true,  // 允许节点拖拽
+          data: [treeData],
+          top: '8%',
+          bottom: '8%',
+          left: '8%',
+          right: '20%',
+          symbolSize: 12,
+          orient: 'LR', // 从左到右布局
+          initialTreeDepth: 3, // 初始展开层级
+          
           label: {
-            show: true,
             position: 'right',
-            formatter: '{b}'
+            verticalAlign: 'middle',
+            align: 'left',
+            fontSize: 12,
+            formatter: (params) => {
+              return this.formatFunctionName(params.data.name) || '未命名';
+            },
+            backgroundColor: 'rgba(255,255,255,0.7)',
+            padding: [4, 7],
+            borderRadius: 3
           },
-          // 确保边有箭头
-          edgeSymbol: ['none', 'arrow'],
-          edgeSymbolSize: [0, 8],
-          lineStyle: {
-            color: '#bbb',
-            curveness: 0.1,
-            width: 1.5
-          },
-          emphasis: {
-            focus: 'adjacency',
-            lineStyle: {
-              width: 4
+          
+          leaves: {
+            label: {
+              position: 'right',
+              verticalAlign: 'middle',
+              align: 'left'
             }
           },
-          force: {
-            initLayout: 'circular',
-            gravity: 0.1,
-            repulsion: 150,
-            edgeLength: 80
-          }
+          
+          emphasis: {
+            focus: 'descendant',
+            itemStyle: {
+              shadowBlur: 10,
+              shadowColor: 'rgba(0,0,0,0.3)'
+            }
+          },
+          
+          expandAndCollapse: true,
+          animationDuration: 550,
+          animationDurationUpdate: 750,
+          
+          lineStyle: {
+            width: 1.5,
+            curveness: 0.2,
+            color: '#91cc75',
+            opacity: 0.8
+          },
+          
+          itemStyle: {
+            borderWidth: 1,
+            color: (params) => {
+              // 根据节点深度设置颜色
+              const colors = [
+                '#5470c6', '#91cc75', '#fac858', '#ee6666',
+                '#73c0de', '#3ba272', '#fc8452', '#9a60b4'
+              ];
+              
+              // 获取节点深度，如果没有则默认为0
+              let depth = 0;
+              if (params.data && params.data.depth !== undefined) {
+                depth = params.data.depth;
+              } else {
+                // 尝试计算深度
+                const name = params.data.name || '';
+                depth = name.split('.').length - 1;
+                depth = Math.max(0, Math.min(colors.length - 1, depth));
+              }
+              
+              return colors[depth % colors.length];
+            }
+          },
+          
+          // 启用漫游
+          roam: true,
         }]
       };
+    },
+    
+    // 将图结构转换为树结构
+    convertGraphToTree(nodes, edges, rootId) {
+      // 创建节点索引
+      const nodeMap = {};
+      nodes.forEach(node => {
+        nodeMap[node.id] = {
+          ...node,
+          children: []
+        };
+      });
+      
+      // 构建树结构
+      edges.forEach(edge => {
+        const source = nodeMap[edge.source];
+        const target = nodeMap[edge.target];
+        
+        if (source && target) {
+          source.children.push(target);
+        }
+      });
+      
+      // 返回根节点
+      return nodeMap[rootId] || nodeMap[nodes[0].id];
     },
     
     findRootNode(nodes, edges) {
@@ -1085,7 +1324,7 @@ export default {
         clearTimeout(this.resizeTimer);
       }
       
-      this.resizeTimer = setTimeout(() => {
+      this.resizeTimer = this.createTimer(() => {
         if (this.visible && this.chartInstance) {
           this.resizeChart();
         }
@@ -1109,6 +1348,23 @@ export default {
         clearTimeout(this.resizeTimer);
         this.resizeTimer = null;
       }
+      
+      // 清理其他可能的定时器和异步操作
+      if (this.dataTimer) {
+        clearTimeout(this.dataTimer);
+        this.dataTimer = null;
+      }
+      
+      // 清理所有跟踪的定时器
+      this.timers.forEach(timer => {
+        clearTimeout(timer);
+      });
+      this.timers = [];
+      
+      // 重置状态
+      this.loading = false;
+      this.error = null;
+      this.hasData = false;
     },
     
     closeModal() {
@@ -1149,6 +1405,7 @@ export default {
     
     changeLayout(layout) {
       console.log(`切换布局: ${this.currentLayout} -> ${layout}`);
+      const oldLayout = this.currentLayout;
       this.currentLayout = layout;
       
       if (this.chartInstance) {
@@ -1160,12 +1417,24 @@ export default {
           console.warn('切换布局时销毁图表实例出错:', e);
         }
         
-        // 延迟创建新图表，确保DOM已更新
-        this.$nextTick(() => {
-          setTimeout(() => {
-            this.createChart();
-          }, 300);
-        });
+        // 如果是切换到树状图或者从树状图切换出来，需要重新请求API
+        if ((layout === 'tree' && oldLayout !== 'tree') || (layout !== 'tree' && oldLayout === 'tree')) {
+          console.log('布局变更需要重新获取数据');
+          // 重新初始化图表，会重新获取数据
+          this.$nextTick(() => {
+            this.loading = true;
+            this.createTimer(() => {
+              this.initChart();
+            }, 300);
+          });
+        } else {
+          // 只是普通的布局切换，使用现有数据重新创建图表
+          this.$nextTick(() => {
+            this.createTimer(() => {
+              this.createChart();
+            }, 300);
+          });
+        }
       }
     },
     
@@ -1272,7 +1541,7 @@ export default {
       // 使用 nextTick 确保 DOM 已更新
       this.$nextTick(() => {
         // 添加延迟，确保模态框完全显示并且 DOM 已渲染
-        setTimeout(() => {
+        this.createTimer(() => {
           console.log('使用模拟数据创建图表');
           this.createChart();
         }, 500);
@@ -1521,6 +1790,61 @@ export default {
         
         console.log(`节点 ${nodeData.name} 位置已保存: x=${nodeData.x}, y=${nodeData.y}`);
       }
+    },
+    
+    // 新增方法：将树状图数据转换为图形数据格式
+    convertTreeToGraphData(trees) {
+      if (!trees || !Array.isArray(trees) || trees.length === 0) {
+        console.error('无效的树状图数据');
+        return { nodes: [], edges: [] };
+      }
+      
+      const nodes = [];
+      const edges = [];
+      let nodeId = 1;
+      
+      // 递归处理树节点
+      const processNode = (node, parentId = null) => {
+        if (!node) return null;
+        
+        // 为节点分配唯一ID
+        const id = `node_${nodeId++}`;
+        
+        // 保存节点数据
+        nodes.push({
+          id: id,
+          name: node.name || '未命名',
+          value: node.value || '',
+          callCount: 1,
+          timeCost: node.value || '未知',
+          nodeType: 'function'
+        });
+        
+        // 添加与父节点的边
+        if (parentId) {
+          edges.push({
+            source: parentId,
+            target: id,
+            value: 1
+          });
+        }
+        
+        // 处理子节点
+        if (node.children && Array.isArray(node.children)) {
+          node.children.forEach(child => {
+            processNode(child, id);
+          });
+        }
+        
+        return id;
+      };
+      
+      // 处理多棵树
+      trees.forEach(tree => {
+        processNode(tree);
+      });
+      
+      return { nodes, edges };
     }
   }
 };

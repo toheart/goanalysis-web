@@ -1,0 +1,10 @@
+---
+description: Best practices for creating charts with ECharts
+globs: **/*.{ts,js}
+alwaysApply: true
+---
+
+- Use ECharts' theme system for consistent styling across charts
+- Implement responsive charts that adapt to different screen sizes
+- Optimize performance by using lazy loading for large datasets
+- Utilize ECharts' rich API for custom interactions and animations
