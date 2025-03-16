@@ -164,7 +164,7 @@
           <div class="row align-items-center">
             <div class="col-md-8">
               <h5 class="mb-0"><i class="bi bi-folder me-2"></i>{{ $t('runtimeAnalysis.projectPath.currentProjectPath') }}</h5>
-              <p class="mb-0 text-muted">{{ inputMode === 'path' ? projectPath : currentFileName }}</p>
+              <p class="mb-0 text-muted">{{ projectPath  }}</p>
             </div>
             <div class="col-md-4 text-end">
               <button class="btn btn-outline-secondary" @click="changePath">
@@ -432,14 +432,25 @@ export default {
       try {
         const response = await axios.get('/api/files', {
           params: {
-            fileType: 2, // 运行时文件类型
+            fileType: 1, // 运行时文件类型
             limit: this.filesLimit,
             offset: (this.filesPage - 1) * this.filesLimit
           }
         });
         
-        this.files = response.data.files || [];
-        this.filesTotal = response.data.total || 0;
+        // 将API返回的字段映射到组件使用的字段
+        const files = response.data.files || [];
+        this.files = files.map(file => ({
+          id: file.id,
+          name: file.fileName,
+          path: file.filePath || '',
+          size: parseInt(file.fileSize, 10),
+          type: file.fileType,
+          contentType: file.contentType,
+          createTime: new Date(file.uploadTime).getTime() / 1000,
+          description: file.description
+        }));
+        this.filesTotal = parseInt(response.data.total || '0', 10);
         this.filesTotalPages = Math.ceil(this.filesTotal / this.filesLimit) || 1;
       } catch (error) {
         console.error('获取文件列表失败:', error);
@@ -461,11 +472,12 @@ export default {
     
     // 选择文件
     selectFile(file) {
+      this.projectPath = file.path;
       this.dbPath = file.path;
-      this.currentFileName = file.name;
       this.isPathVerified = true;
       this.inputMode = 'file';
-      
+      // 设置当前缓存
+      localStorage.setItem('verifiedProjectPath', file.path);
       // 导航到运行时分析页面
       this.$router.push('/runtime-analysis');
     },
@@ -506,7 +518,7 @@ export default {
           const chunk = file.slice(start, end);
           
           const formData = new FormData();
-          formData.append('file', chunk);
+          formData.append('chunk', chunk);
           formData.append('file_id', fileId);
           formData.append('chunk_index', chunkIndex.toString());
           formData.append('total_chunks', totalChunks.toString());
@@ -543,8 +555,7 @@ export default {
         };
         document.getElementById('file').value = '';
       } catch (error) {
-        console.error('文件上传失败:', error);
-        this.showMessage('文件上传失败: ' + (error.response?.data?.message || error.message || '未知错误'), 'error');
+        this.showMessage('文件上传失败: ' + (error.response?.data || error.message || '未知错误'), 'error');
       } finally {
         this.uploadStatus.uploading = false;
       }
@@ -552,6 +563,13 @@ export default {
     
     // 格式化文件大小
     formatFileSize(size) {
+      // 确保size是数字
+      size = typeof size === 'string' ? parseInt(size, 10) : size;
+      
+      if (isNaN(size) || size === null) {
+        return '未知';
+      }
+      
       if (size < 1024) {
         return size + ' B';
       } else if (size < 1024 * 1024) {

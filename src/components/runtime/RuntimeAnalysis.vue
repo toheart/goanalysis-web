@@ -128,13 +128,13 @@
                       </span>
                     </td>
                     <td class="text-center">
-                      <button 
-                        class="btn btn-sm btn-primary"
-                        @click="viewFunctionCallChain(func.functionId, func.gid)"
-                        title="查看调用链并高亮显示"
+                      <router-link 
+                        :to="{ name: 'TraceDetails', params: { gid: func.gid }, query: { highlight: func.functionId } }" 
+                        class="btn btn-sm btn-success"
+                        title="查看详情并高亮显示"
                       >
-                        <i class="bi bi-eye me-1"></i>查看
-                      </button>
+                        <i class="bi bi-eye me-1"></i>详情
+                      </router-link>
                     </td>
                   </tr>
                 </tbody>
@@ -344,10 +344,6 @@ export default {
       type: String,
       default: ''
     },
-    currentFileName: {
-      type: String,
-      default: ''
-    }
   },
   setup() {
     const { t, locale } = useI18n({ useScope: 'global' });
@@ -438,10 +434,6 @@ export default {
       clearTimeout(this.suggestionsTimer);
     }
     
-    // 清除定时器
-    if (this.refreshUnfinishedFunctionsInterval) {
-      clearInterval(this.refreshUnfinishedFunctionsInterval);
-    }
   },
   computed: {
     filteredGIDs() {
@@ -515,15 +507,6 @@ export default {
       this.fetchFunctionNames();
       this.fetchUnfinishedFunctions();
       
-      // 设置定时刷新未完成函数列表
-      if (this.refreshUnfinishedFunctionsInterval) {
-        clearInterval(this.refreshUnfinishedFunctionsInterval);
-      }
-      this.refreshUnfinishedFunctionsInterval = setInterval(() => {
-        if (this.isComponentMounted) {
-          this.fetchUnfinishedFunctions();
-        }
-      }, 30000); // 每30秒刷新一次
     },
     
     // 获取当前数据库路径
@@ -557,7 +540,7 @@ export default {
         const dbpath = this.getCurrentDbPath();
         
         if (!dbpath) {
-          this.showMessage('数据库路径未设置，无法获取GID列表', 'error');
+          this.showMessage('database path is empty', 'error');
           this.loading = false;
           return;
         }
@@ -590,8 +573,7 @@ export default {
         // 更新Goroutine统计信息
         this.fetchGoroutineStats();
       } catch (error) {
-        console.error('获取GID列表失败:', error);
-        this.showMessage(`获取GID列表失败: ${error.message}`, 'error');
+        this.showMessage(`get gid list failed: ${error.message}`, 'error');
         this.gids = [];
         this.total = 0;
         this.totalPages = 1;
@@ -620,7 +602,7 @@ export default {
         });
         
         if (!response.ok) {
-          throw new Error(`API请求失败: ${response.status}`);
+          throw new Error(`API request failed: ${response.status}`);
         }
         
         const data = await response.json();
@@ -632,7 +614,7 @@ export default {
           maxDepth: data.maxDepth || 0
         };
       } catch (error) {
-        console.error('获取Goroutine统计信息失败:', error);
+        this.showMessage(`get goroutine stats failed: ${error.message}`, 'error');
         // 不显示错误消息，因为这是次要功能
       }
     },
@@ -687,7 +669,7 @@ export default {
         const dbpath = this.getCurrentDbPath();
         
         if (!dbpath) {
-          this.showMessage('数据库路径未设置，无法获取热点函数列表', 'error');
+          this.showMessage('database path is empty', 'error');
           this.loading = false;
           return;
         }
@@ -706,7 +688,7 @@ export default {
         });
         
         if (!response.ok) {
-          throw new Error(`API请求失败: ${response.status}`);
+          throw new Error(`API request failed: ${response.status}`);
         }
         
         const data = await response.json();
@@ -714,8 +696,7 @@ export default {
         // 更新数据
         this.hotFunctions = data.functions || [];
       } catch (error) {
-        console.error('获取热点函数列表失败:', error);
-        this.showMessage(`获取热点函数列表失败: ${error.message}`, 'error');
+        this.showMessage(`get hot functions list failed: ${error.message}`, 'error');
         this.hotFunctions = [];
       } finally {
         this.loading = false;
@@ -742,7 +723,7 @@ export default {
         });
         
         if (!response.ok) {
-          throw new Error(`API请求失败: ${response.status}`);
+          throw new Error(`API request failed: ${response.status}`);
         }
         
         const data = await response.json();
@@ -750,7 +731,7 @@ export default {
         // 更新函数名列表
         this.functionNames = data.functionNames || [];
       } catch (error) {
-        console.error('获取函数名列表失败:', error);
+        this.showMessage(`get function names list failed: ${error.message}`, 'error');
         this.functionNames = [];
       }
     },
@@ -791,7 +772,7 @@ export default {
         this.unfinishedFunctionsTotal = data.total || 0;
         this.unfinishedFunctionsTotalPages = Math.ceil(this.unfinishedFunctionsTotal / this.unfinishedFunctionsLimit) || 1;
       } catch (error) {
-        console.error('获取未完成函数列表失败:', error);
+        this.showMessage(`get unfinished functions list failed: ${error.message}`, 'error');
         this.unfinishedFunctions = [];
         this.unfinishedFunctionsTotal = 0;
         this.unfinishedFunctionsTotalPages = 1;
@@ -804,7 +785,7 @@ export default {
     updateBlockingThreshold() {
       // 验证阈值
       if (isNaN(this.blockingThreshold) || this.blockingThreshold < 100) {
-        this.showMessage('阻塞阈值必须大于等于100毫秒', 'warning');
+        this.showMessage('blocking threshold must be greater than or equal to 100ms', 'warning');
         this.blockingThreshold = 1000; // 重置为默认值
         return;
       }
@@ -815,7 +796,7 @@ export default {
       // 刷新未完成函数列表
       this.fetchUnfinishedFunctions();
       
-      this.showMessage(`阻塞阈值已更新为 ${this.blockingThreshold}ms`, 'success');
+      this.showMessage(`blocking threshold has been updated to ${this.blockingThreshold}ms`, 'success');
     },
     
     // 未完成函数分页控制
@@ -856,8 +837,7 @@ export default {
     
     // 处理图表错误
     handleChartError(error) {
-      console.error('图表加载错误:', error);
-      this.showMessage(`图表加载失败: ${error.message}`, 'error');
+      this.showMessage(`chart loading failed: ${error.message}`, 'error');
     },
     
     // 排序热点函数
@@ -923,7 +903,7 @@ export default {
         const dbpath = this.getCurrentDbPath();
         
         if (!dbpath) {
-          this.showMessage('数据库路径未设置，无法搜索函数', 'error');
+          this.showMessage('database path is empty', 'error');
           this.loading = false;
           return;
         }
@@ -954,11 +934,10 @@ export default {
         this.currentPage = 1; // 重置为第一页
         
         if (this.gids.length === 0) {
-          this.showMessage(`没有找到与函数 "${this.functionName}" 相关的Goroutine`, 'info');
+          this.showMessage(`no goroutine found for function "${this.functionName}"`, 'info');
         }
       } catch (error) {
-        console.error('搜索函数失败:', error);
-        this.showMessage(`搜索函数失败: ${error.message}`, 'error');
+        this.showMessage(`search function failed: ${error.message}`, 'error');
         this.gids = [];
         this.total = 0;
         this.totalPages = 1;

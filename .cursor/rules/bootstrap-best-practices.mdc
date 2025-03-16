@@ -1,0 +1,10 @@
+---
+description: Best practices for using Bootstrap in web applications
+globs: **/*.{html,js,css}
+alwaysApply: true
+---
+
+- Use Bootstrap's utility classes for quick and consistent styling
+- Customize Bootstrap variables to match your brand's design system
+- Utilize Bootstrap's responsive grid system for flexible layouts
+- Implement Bootstrap's JavaScript components for enhanced interactivity

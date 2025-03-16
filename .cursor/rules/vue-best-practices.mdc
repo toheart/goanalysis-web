@@ -1,0 +1,11 @@
+---
+description: Best practices for Vue.js applications
+globs: **/*.{vue,ts,js}
+alwaysApply: true
+---
+
+- Use the Composition API for better code organization and reusability
+- Implement proper state management with Vuex or Pinia
+- Utilize Vue's built-in reactivity system effectively
+- Keep components small and focused on a single responsibility
+
