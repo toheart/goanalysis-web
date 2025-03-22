@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue';
-import { useRuntimeApi } from '../../shared/composables/useRuntimeApi';
-import { createTreeChartOption } from '../../shared/utils/chartUtils';
+import { useRuntimeApi } from './useRuntimeApi';
+import { createTreeChartOption } from '../utils/chartUtils';
 
 export function useCallChainAnalysis() {
   const runtimeApi = useRuntimeApi();

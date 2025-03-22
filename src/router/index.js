@@ -1,11 +1,11 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import TraceViewer from '../components/runtime/TraceViewer.vue';
-import TraceDetails from '../components/runtime/TraceDetails.vue';
+import TraceViewer from '../components/runtime/components/TraceViewer.vue';
+import TraceDetails from '../components/runtime/components/TraceDetails.vue';
 import StaticAnalysis from '../components/callgraph/StaticAnalysis.vue';
 import DbAnalysisDetail from '../components/callgraph/DbAnalysisDetail.vue';
 import WelcomePage from '../components/Welcome.vue';
-import RuntimeAnalysis from '../components/runtime/RuntimeAnalysis.vue';
-import FunctionAnalysis from '../components/runtime/FunctionAnalysis.vue';
+import RuntimeAnalysis from '../components/runtime/components/RuntimeAnalysis.vue';
+import FunctionAnalysis from '../components/runtime/components/FunctionAnalysis.vue';
 import SetLanguage from '../components/Language.vue';
 
 const routes = [

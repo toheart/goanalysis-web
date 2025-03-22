@@ -177,6 +177,7 @@ const zh = {
       runtimeAnalysis: '运行时分析大盘',
       functionAnalysis: '函数查询分析'
     },
+
     projectPath: {
       currentProjectPath: '当前项目路径',
       changeProjectPath: '更换项目',
@@ -228,23 +229,26 @@ const zh = {
       prevPage: '上一页',
       nextPage: '下一页'
     },
-    functionAnalysis:{
-      title: '函数查询分析',
-      search: '查询',
-      inputFunctionName: '输入函数名称进行查询，支持模糊匹配',
-      caller: '调用者',
-      loading: '加载中...',
-      analyzing: '正在分析函数调用关系...',
-      noRelatedFunction: '未找到相关函数调用关系',
-      tryOtherFunctionName: '请尝试其他函数名称',
-      callRelationAnalysis: '调用关系分析',
-      export: '导出',
+    functionAnalysis: {
+      title: '函数调用分析',
+      inputFunctionName: '输入函数名称搜索',
+      search: '搜索',
+      searchToAnalyze: '搜索函数以开始分析',
+      pleaseInputFunction: '请输入函数名称',
       functionName: '函数名称',
       packagePath: '包路径',
-      callLevel: '调用层级',
       callCount: '调用次数',
       avgTime: '平均耗时',
-      operation: '操作'
+      maxTime: '最大耗时',
+      minTime: '最小耗时',
+      operations: '操作',
+      analyze: '分析',
+      callersList: '调用 {name} 的函数列表',
+      calleesList: '{name} 调用的函数列表',
+      noCallers: '未找到调用当前函数的记录',
+      noCallees: '当前函数未调用其他函数',
+      none: '无',
+      foundCount: '找到 {count} 个匹配函数'
     }
   }
 }
@@ -477,7 +481,7 @@ const en = {
       prevPage: 'Previous',
       nextPage: 'Next'
     },
-    functionAnalysis:{
+    functionAnalysis: {
       title: 'Function Analysis',
       search: 'Search',
       inputFunctionName: 'Input function name for query, supports fuzzy matching',
