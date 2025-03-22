@@ -151,7 +151,7 @@
 
 
 <script>
-import axios from '../../axios';
+import axios from '../../../axios';
 import { Modal } from 'bootstrap';
 
 export default {
@@ -292,7 +292,7 @@ export default {
       let currentParentId = Number(node.parentId);
       
       while (currentParentId) {
-        const parentIndex = this.findNodeIndexById(currentParentId);
+        const parentIndex = this.findNodeIndexByParentId(currentParentId);
         if (parentIndex === -1) break;
         
         ancestors.push(parentIndex);
@@ -626,22 +626,28 @@ export default {
 
 <style scoped>
 .trace-container {
-  max-height: 70vh;
+  max-height: 75vh;
   overflow-y: auto;
-  padding: 0.5rem 1rem;
+  padding: 1rem;
+  background: #fafafa;
+  border-radius: 12px;
 }
 
 .stack-item {
   position: relative;
+  padding-left: 2rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
 }
 
 .stack-item::before {
   content: '';
   position: absolute;
-  left: -15px;
+  left: 0;
   top: 0;
   height: 100%;
-  border-left: 1px dashed #ccc;
+  border-left: 2px dashed rgba(52, 152, 219, 0.3);
+  transition: opacity 0.3s ease;
 }
 
 .stack-item:last-child::before {
@@ -649,117 +655,324 @@ export default {
 }
 
 .trace-row {
-  padding: 0.75rem;
+  padding: 1rem;
   background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  transition: all 0.2s ease;
-  margin-bottom: 0.75rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-bottom: 1rem;
   position: relative;
+  border: 1px solid #eef2f7;
+  transform-origin: top;
 }
 
 .trace-row:hover {
   background-color: #f8f9fa;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   transform: translateY(-2px);
 }
 
 .trace-row.has-children {
-  border-left: 3px solid #3498db;
+  border-left: 4px solid #3498db;
 }
 
 .trace-row.is-collapsed {
-  border-left: 3px solid #e74c3c;
+  border-left: 4px solid #e74c3c;
+}
+
+.trace-row.is-collapsed + .stack-item {
+  max-height: 0;
+  margin: 0;
+  opacity: 0;
+  transform: translateX(-10px);
+}
+
+.stack-item {
+  max-height: 1000px; /* 设置一个足够大的值 */
+  opacity: 1;
+  transform: translateX(0);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .trace-row.is-highlighted {
-  background-color: #fff3cd;
-  border-left: 3px solid #ffc107;
-  box-shadow: 0 0 10px rgba(255, 193, 7, 0.5);
+  background-color: #fff8e1;
+  border-left: 4px solid #ffc107;
+  box-shadow: 0 0 15px rgba(255, 193, 7, 0.3);
 }
 
 .trace-row.is-highlighted:hover {
-  background-color: #ffecb5;
-  transform: translateY(-2px);
+  background-color: #fff3cd;
 }
 
 .function-name {
-  font-family: 'Consolas', 'Monaco', monospace;
-  font-weight: 500;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-weight: 600;
   color: #2c3e50;
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
 }
 
 .toggle-btn {
-  padding: 0;
+  padding: 0.25rem;
   color: #3498db;
   background: transparent;
   border: none;
-  font-size: 1.2rem;
-  transition: transform 0.2s ease;
+  font-size: 1.25rem;
+  transition: all 0.3s ease;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  cursor: pointer;
+  position: relative;
+  z-index: 1;
 }
 
-.toggle-btn:hover {
-  color: #2980b9;
-  transform: scale(1.2);
+.toggle-btn::before {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: rgba(52, 152, 219, 0.1);
+  border-radius: 50%;
+  transform: scale(0);
+  transition: transform 0.3s ease;
+  z-index: -1;
+}
+
+.toggle-btn:hover::before {
+  transform: scale(1);
+}
+
+.toggle-btn i {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.is-collapsed .toggle-btn i {
+  transform: rotate(-90deg);
 }
 
 .is-collapsed .toggle-btn {
   color: #e74c3c;
 }
 
+.is-collapsed .toggle-btn:hover::before {
+  background: rgba(231, 76, 60, 0.1);
+}
+
 .function-dot {
-  font-size: 0.5rem;
+  font-size: 0.6rem;
   color: #95a5a6;
+  margin-right: 0.5rem;
+  opacity: 0.7;
+  transition: opacity 0.3s ease;
+}
+
+.trace-row:hover .function-dot {
+  opacity: 1;
 }
 
 .param-value {
-  font-family: 'Consolas', 'Monaco', monospace;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   word-break: break-all;
   white-space: pre-wrap;
   background-color: #f8f9fa;
-  padding: 0.5rem;
-  border-radius: 4px;
-  border-left: 3px solid #3498db;
+  padding: 1rem;
+  border-radius: 8px;
+  border-left: 4px solid #3498db;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  transition: all 0.3s ease;
 }
 
 .btn-outline-info {
-  border-color: #3498db;
+  border: 2px solid #3498db;
   color: #3498db;
+  font-weight: 500;
+  padding: 0.375rem 1rem;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-outline-info::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(52, 152, 219, 0.1);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.3s ease, height 0.3s ease;
+}
+
+.btn-outline-info:hover::before {
+  width: 200%;
+  height: 200%;
 }
 
 .btn-outline-info:hover {
   background-color: #3498db;
   color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(52, 152, 219, 0.2);
 }
 
 .card {
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   border: none;
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
 }
 
 .card-header {
   background-color: #f8f9fa;
-  border-bottom: 1px solid #eaeaea;
+  border-bottom: 1px solid #eef2f7;
+  padding: 1rem 1.5rem;
+}
+
+.display-4 {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 2.5rem;
+}
+
+.text-muted {
+  color: #6c757d !important;
+  font-size: 0.9rem;
+  transition: opacity 0.3s ease;
+}
+
+.trace-row:hover .text-muted {
+  opacity: 0.9;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 添加折叠动画 */
+@keyframes collapseOut {
+  from {
+    max-height: 1000px;
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    max-height: 0;
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+}
+
+@keyframes expandIn {
+  from {
+    max-height: 0;
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    max-height: 1000px;
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @media (max-width: 768px) {
+  .trace-row {
+    padding: 0.75rem;
+  }
+  
   .trace-row .row {
     flex-direction: column;
   }
   
   .trace-row .col-md-3 {
-    margin-top: 0.5rem;
+    margin-top: 1rem;
     text-align: left !important;
   }
   
   .stack-item {
-    margin-left: 10px !important;
+    padding-left: 1rem;
   }
   
-  .stack-item::before {
-    left: -10px;
+  .function-name {
+    font-size: 1rem;
+  }
+  
+  .display-4 {
+    font-size: 2rem;
+  }
+  
+  .card {
+    margin-bottom: 1rem;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .trace-container {
+    background: #1a1a1a;
+  }
+  
+  .trace-row {
+    background-color: #2d2d2d;
+    border-color: #3d3d3d;
+  }
+  
+  .trace-row:hover {
+    background-color: #333333;
+  }
+  
+  .function-name {
+    color: #e1e1e1;
+  }
+  
+  .param-value {
+    background-color: #333333;
+    color: #e1e1e1;
+  }
+  
+  .card {
+    background-color: #2d2d2d;
+  }
+  
+  .card-header {
+    background-color: #333333;
+    border-color: #3d3d3d;
+  }
+  
+  .text-muted {
+    color: #a0a0a0 !important;
+  }
+  
+  .display-4 {
+    color: #e1e1e1;
+  }
+  
+  .toggle-btn::before {
+    background: rgba(52, 152, 219, 0.05);
+  }
+  
+  .is-collapsed .toggle-btn:hover::before {
+    background: rgba(231, 76, 60, 0.05);
   }
 }
 </style> 

@@ -106,7 +106,7 @@
 <script>
 import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { useCallChainAnalysis } from '../composables/useCallChainAnalysis';
-import { initChart, handleChartResize, disposeChart } from '../../shared/utils/chartUtils';
+import { initChart, handleChartResize, disposeChart } from '../utils/chartUtils';
 
 export default {
   name: 'CallChainAnalysis',

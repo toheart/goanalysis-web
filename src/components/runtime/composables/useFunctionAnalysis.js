@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue';
-import { useRuntimeApi } from '../../shared/composables/useRuntimeApi';
+import { useRuntimeApi } from './useRuntimeApi';
 
 export function useFunctionAnalysis() {
   const runtimeApi = useRuntimeApi();

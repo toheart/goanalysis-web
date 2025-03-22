@@ -1,5 +1,23 @@
 <template>
   <div class="runtime-analysis">
+    <!-- 搜索框 -->
+    <div class="search-container mb-4">
+      
+      <!-- 函数名建议列表 -->
+      <div class="suggestions-wrapper" v-if="showFunctionSuggestions">
+        <div class="function-suggestions list-group">
+          <button
+            v-for="func in functionSuggestions"
+            :key="func.name"
+            class="list-group-item list-group-item-action"
+            @click="selectFunction(func.name)"
+          >
+            {{ func.name }}
+          </button>
+        </div>
+      </div>
+    </div>
+    
     <!-- 消息提示组件 -->
     <div class="message-container" v-if="message.show">
       <div :class="['message-box', `message-${message.type}`]">
@@ -11,20 +29,6 @@
     <!-- 运行时分析内容 -->
     <div>
       
-      <!-- 函数名建议列表 -->
-      <div class="suggestions-wrapper" v-if="showFunctionSuggestions && filteredFunctionNames.length">
-        <ul class="list-group function-suggestions">
-          <li
-            v-for="(name, index) in filteredFunctionNames"
-            :key="index"
-            class="list-group-item list-group-item-action"
-            @mousedown.prevent="selectFunction(name)"
-          >
-            {{ name }}
-          </li>
-        </ul>
-      </div>
-
       <!-- 统计卡片 -->
       <div class="row mb-4">
         <div class="col-md-3">
@@ -312,46 +316,95 @@
       </div>
 
       <!-- 函数调用关系图组件 -->
-      <function-call-graph
-        v-if="showChart"
-        :visible="showChart"
+      <GidCallGraph
+        v-model:visible="showChart"
         :gid="currentGid"
-        :dbpath="getCurrentDbPath()"
-        @update:visible="showChart = $event"
+        :dbpath="dbPath"
+        :chart-data="chartData"
         @error="handleChartError"
-        :key="`chart-${currentGid}-${chartRenderCount}`"
-        :use-mock-data="testMode"
       />
     </div>
   </div>
 </template>
 
 <script>
-import FunctionCallGraph from '../charts/FunctionCallGraph.vue';
 import { useI18n } from 'vue-i18n';
+import { ref, computed } from 'vue';
+import axios from 'axios';
+import GidCallGraph from './GidCallGraph.vue';
 
 export default {
   name: 'RuntimeAnalysis',
   components: {
-    FunctionCallGraph
+    GidCallGraph
   },
   props: {
     projectPath: {
       type: String,
       default: ''
     },
-    dbPath: {
-      type: String,
-      default: ''
-    },
   },
-  setup() {
+  setup(props) {
     const { t, locale } = useI18n({ useScope: 'global' });
-    return { t, locale };
+    const currentGid = ref(0);
+    const showChart = ref(false);
+    const chartData = ref(null);
+    const dbPath = computed(() => props.projectPath || '');
+    const message = ref({
+      show: false,
+      content: '',
+      type: 'info',
+      timer: null
+    });
+
+    // 显示消息提示
+    const showMessage = (content, type = 'info', duration = 3000) => {
+      // 清除之前的定时器
+      if (message.value.timer) {
+        clearTimeout(message.value.timer);
+      }
+      
+      // 设置消息内容
+      message.value = {
+        show: true,
+        content,
+        type,
+        timer: null
+      };
+      
+      // 设置定时器，自动关闭消息
+      message.value.timer = setTimeout(() => {
+        message.value.show = false;
+      }, duration);
+    };
+
+    // 查看函数调用链
+    const viewFunctionCallChain = (gid) => {
+      currentGid.value = Number(gid);
+      showChart.value = true;
+    };
+
+    // 处理图表错误
+    const handleChartError = (error) => {
+      showMessage(`图表加载失败: ${error.message}`, 'error');
+      showChart.value = false;
+    };
+
+    return {
+      t,
+      locale,
+      currentGid,
+      showChart,
+      chartData,
+      dbPath,
+      message,
+      showMessage,
+      viewFunctionCallChain,
+      handleChartError
+    };
   },
   data() {
     return {
-      projectPathInput: '',
       functionName: '',
       filteredFunctionNames: [],
       showFunctionSuggestions: false,
@@ -361,42 +414,26 @@ export default {
       total: 0,
       totalPages: 1,
       gids: [],
-      currentGid: null,
-      suggestionsTimer: null, // 用于延迟隐藏建议列表的计时器
-      isSearching: false, // 标记是否正在搜索
-      inputPosition: { top: 0, left: 0, width: 0 }, // 存储输入框位置
+      suggestionsTimer: null,
+      isSearching: false,
+      inputPosition: { top: 0, left: 0, width: 0 },
       loading: false,
       showAllGoroutines: false,
       hotFunctions: [],
-      hotFunctionSortBy: 'calls', // 'calls' 或 'time'
+      hotFunctionSortBy: 'calls',
       goroutineStats: {
         active: 0,
         avgTime: '0ms',
         maxDepth: 0
       },
-      showChart: false, // 是否显示图表
-      showDatabaseError: false, // 添加数据库错误标志
-      gidLimit: 10, // 添加gidLimit属性
-      hotFunctionLimit: 10, // 添加hotFunctionLimit属性
-      chartRenderCount: 0, // 图表渲染计数器，用于强制重新创建组件
-      testMode: false, // 测试模式，用于在API请求失败时使用模拟数据
-      searchTimeout: null, // 用于防抖
-      unfinishedFunctions: [], // 未完成函数列表
-      unfinishedFunctionsTotal: 0, // 未完成函数总数
-      unfinishedFunctionsPage: 1, // 当前页码
-      unfinishedFunctionsLimit: 10, // 每页数量
-      unfinishedFunctionsTotalPages: 1, // 总页数
-      blockingThreshold: 1000, // 阻塞时间阈值（毫秒），默认1秒
-      loadingUnfinishedFunctions: false, // 加载状态
-      highlightedFunctionId: null, // 高亮显示的函数ID
-      
-      // 消息提示
-      message: {
-        show: false,
-        content: '',
-        type: 'info', // info, success, error, warning
-        timer: null
-      }
+      unfinishedFunctions: [],
+      unfinishedFunctionsTotal: 0,
+      unfinishedFunctionsPage: 1,
+      unfinishedFunctionsLimit: 10,
+      unfinishedFunctionsTotalPages: 1,
+      blockingThreshold: 1000,
+      loadingUnfinishedFunctions: false,
+      highlightedFunctionId: null
     };
   },
   mounted() {
@@ -501,7 +538,6 @@ export default {
     
     // 初始化数据
     initializeData() {
-      this.projectPathInput = this.projectPath;
       this.fetchGIDs();
       this.fetchHotFunctions();
       this.fetchFunctionNames();
@@ -511,25 +547,10 @@ export default {
     
     // 获取当前数据库路径
     getCurrentDbPath() {
-      console.log('获取数据库路径，当前状态:', {
-        dbPath: this.dbPath,
-        projectPath: this.projectPath
-      });
-      
-      // 如果已经设置了数据库路径，直接返回
-      if (this.dbPath) {
-        console.log('使用已设置的数据库路径:', this.dbPath);
-        return this.dbPath;
-      }
-      
       // 否则使用项目路径作为数据库路径
       if (this.projectPath) {
-        console.log('使用项目路径作为数据库路径:', this.projectPath);
         return this.projectPath;
       }
-      
-      // 如果都没有，返回空字符串
-      console.warn('数据库路径为空');
       return '';
     },
     
@@ -641,27 +662,6 @@ export default {
       }
     },
     
-    // 显示消息
-    showMessage(content, type = 'info', duration = 3000) {
-      // 清除之前的定时器
-      if (this.message.timer) {
-        clearTimeout(this.message.timer);
-      }
-      
-      // 设置消息内容
-      this.message = {
-        show: true,
-        content,
-        type,
-        timer: null
-      };
-      
-      // 设置定时器，自动关闭消息
-      this.message.timer = setTimeout(() => {
-        this.message.show = false;
-      }, duration);
-    },
-
     // 获取热点函数列表
     async fetchHotFunctions() {
       try {
@@ -703,6 +703,16 @@ export default {
       }
     },
     
+    // 排序热点函数
+    async sortHotFunctions(sortBy) {
+      if (this.hotFunctionSortBy === sortBy) {
+        return; // 如果已经是当前排序方式，则不需要重新排序
+      }
+      
+      this.hotFunctionSortBy = sortBy;
+      await this.fetchHotFunctions(); // 重新获取排序后的数据
+    },
+    
     // 获取函数名列表（用于自动完成）
     async fetchFunctionNames() {
       try {
@@ -728,10 +738,10 @@ export default {
         
         const data = await response.json();
         
-        // 更新函数名列表
-        this.functionNames = data.functionNames || [];
+        // 更新数据
+        this.functionNames = data.functions || [];
       } catch (error) {
-        this.showMessage(`get function names list failed: ${error.message}`, 'error');
+        this.showMessage(`get function names failed: ${error.message}`, 'error');
         this.functionNames = [];
       }
     },
@@ -743,6 +753,7 @@ export default {
         const dbpath = this.getCurrentDbPath();
         
         if (!dbpath) {
+          this.showMessage('database path is empty', 'error');
           this.loadingUnfinishedFunctions = false;
           return;
         }
@@ -756,13 +767,12 @@ export default {
           body: JSON.stringify({
             page: this.unfinishedFunctionsPage,
             limit: this.unfinishedFunctionsLimit,
-            blockingThreshold: this.blockingThreshold,
             dbpath: dbpath
           })
         });
         
         if (!response.ok) {
-          throw new Error(`API请求失败: ${response.status}`);
+          throw new Error(`API request failed: ${response.status}`);
         }
         
         const data = await response.json();
@@ -783,72 +793,12 @@ export default {
     
     // 更新阻塞阈值
     updateBlockingThreshold() {
-      // 验证阈值
-      if (isNaN(this.blockingThreshold) || this.blockingThreshold < 100) {
-        this.showMessage('blocking threshold must be greater than or equal to 100ms', 'warning');
-        this.blockingThreshold = 1000; // 重置为默认值
-        return;
-      }
-      
-      // 保存到本地存储
+      // 将阻塞阈值保存到本地存储
       localStorage.setItem('blockingThreshold', this.blockingThreshold.toString());
-      
-      // 刷新未完成函数列表
-      this.fetchUnfinishedFunctions();
-      
-      this.showMessage(`blocking threshold has been updated to ${this.blockingThreshold}ms`, 'success');
+      this.showMessage('阻塞阈值已更新', 'success');
     },
     
-    // 未完成函数分页控制
-    prevUnfinishedFunctionsPage() {
-      if (this.unfinishedFunctionsPage > 1) {
-        this.unfinishedFunctionsPage--;
-        this.fetchUnfinishedFunctions();
-      }
-    },
-    
-    nextUnfinishedFunctionsPage() {
-      if (this.unfinishedFunctionsPage < this.unfinishedFunctionsTotalPages) {
-        this.unfinishedFunctionsPage++;
-        this.fetchUnfinishedFunctions();
-      }
-    },
-    
-    goToUnfinishedFunctionsPage(page) {
-      if (page >= 1 && page <= this.unfinishedFunctionsTotalPages) {
-        this.unfinishedFunctionsPage = page;
-        this.fetchUnfinishedFunctions();
-      }
-    },
-    
-    // 查看函数调用链
-    viewFunctionCallChain(functionId, gid) {
-      this.highlightedFunctionId = functionId;
-      this.currentGid = gid;
-      this.showChart = true;
-    },
-    
-    // 显示函数调用图
-    showFunctionCallGraph(gid) {
-      this.currentGid = gid;
-      this.chartRenderCount++; // 增加计数器，强制重新创建组件
-      this.showChart = true;
-    },
-    
-    // 处理图表错误
-    handleChartError(error) {
-      this.showMessage(`chart loading failed: ${error.message}`, 'error');
-    },
-    
-    // 排序热点函数
-    sortHotFunctions(sortBy) {
-      if (this.hotFunctionSortBy !== sortBy) {
-        this.hotFunctionSortBy = sortBy;
-        this.fetchHotFunctions();
-      }
-    },
-    
-    // 处理文档点击事件（用于隐藏建议列表）
+    // 处理文档点击事件
     handleDocumentClick(event) {
       // 如果点击的不是建议列表或输入框，则隐藏建议列表
       if (this.showFunctionSuggestions) {
@@ -861,13 +811,13 @@ export default {
       }
     },
     
-    // 更新输入框位置（用于建议列表定位）
+    // 更新输入框位置
     updateInputPosition() {
-      const input = document.querySelector('#functionNameInput');
+      const input = this.$refs.functionNameInput;
       if (input) {
         const rect = input.getBoundingClientRect();
         this.inputPosition = {
-          top: rect.bottom,
+          top: rect.top,
           left: rect.left,
           width: rect.width
         };
@@ -876,267 +826,415 @@ export default {
     
     // 处理语言变化
     handleLanguageChange() {
-      // 刷新数据
-      this.fetchGIDs();
-      this.fetchHotFunctions();
+      // 重新初始化数据
+      this.initializeData();
     },
     
-    // 选择函数名
+    // 选择函数
     selectFunction(name) {
       this.functionName = name;
       this.showFunctionSuggestions = false;
-      
-      // 根据选择的函数名搜索相关的GID
-      this.searchGIDsByFunctionName();
     },
     
-    // 根据函数名搜索GID
-    async searchGIDsByFunctionName() {
-      if (!this.functionName.trim()) {
-        // 如果函数名为空，则获取所有GID
-        this.fetchGIDs();
-        return;
-      }
-      
+    // 显示函数调用关系图
+    async showFunctionCallGraph(gid) {
       try {
-        this.loading = true;
-        const dbpath = this.getCurrentDbPath();
+        // 保存当前滚动位置
+        const scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
         
-        if (!dbpath) {
-          this.showMessage('database path is empty', 'error');
-          this.loading = false;
-          return;
+        this.currentGid = gid;
+        // 先设置showChart为true，确保模态框开始显示
+        this.showChart = true;
+        this.chartData = null; // 清空旧数据
+        
+        // 获取函数调用链数据
+        const [treeResponse, traceResponse] = await Promise.all([
+          axios.post('/api/runtime/tree-graph/gid', {
+            dbPath: this.getCurrentDbPath(),
+            gid: gid
+          }),
+          axios.post(`/api/runtime/traces/${gid}`, {
+            dbpath: this.getCurrentDbPath()
+          })
+        ]);
+        
+        const treeData = treeResponse.data;
+        const traceData = traceResponse.data;
+        
+        if (!treeData || !treeData.trees || !traceData || !traceData.traceData) {
+          throw new Error('返回的数据格式不正确');
         }
         
-        // 调用API根据函数名搜索GID
-        const response = await fetch('/api/runtime/gids/function', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            functionName: this.functionName,
-            path: dbpath,
-            includeMetrics: true
-          })
+        // 创建函数ID到执行时间的映射
+        const executionTimeMap = {};
+        traceData.traceData.forEach(trace => {
+          if (trace.id && trace.timeCost) {
+            executionTimeMap[trace.id] = trace.timeCost;
+          }
         });
         
-        if (!response.ok) {
-          throw new Error(`API请求失败: ${response.status}`);
-        }
+        // 递归添加执行时间到树节点
+        const addExecutionTime = (node) => {
+          if (!node) return;
+          
+          // 添加执行时间
+          if (node.value && executionTimeMap[node.value]) {
+            node.executionTime = executionTimeMap[node.value];
+          }
+          
+          // 递归处理子节点
+          if (Array.isArray(node.children)) {
+            node.children.forEach(child => addExecutionTime(child));
+          }
+        };
         
-        const data = await response.json();
+        // 处理所有树
+        treeData.trees.forEach(tree => addExecutionTime(tree));
         
-        // 更新数据
-        this.gids = data.body || [];
-        this.total = data.total || 0;
-        this.totalPages = Math.ceil(this.total / this.limit) || 1;
-        this.currentPage = 1; // 重置为第一页
+        // 确保每棵树都是一个独立的数据结构
+        const processedTreeData = treeData.trees.map(tree => {
+          // 处理树节点，确保数据格式正确
+          return {
+            name: tree.name || 'Root',
+            value: tree.value || '',
+            children: tree.children || [],
+            executionTime: tree.executionTime || null
+          };
+        });
         
-        if (this.gids.length === 0) {
-          this.showMessage(`no goroutine found for function "${this.functionName}"`, 'info');
+        // 更新图表数据
+        // 延迟设置图表数据，确保模态框已经显示
+        setTimeout(() => {
+          this.chartData = processedTreeData;
+        }, 200);
+
+        // 监听模态框关闭事件
+        const handleModalHidden = () => {
+          // 恢复滚动位置
+          setTimeout(() => {
+            window.scrollTo(0, scrollPosition);
+          }, 100);
+        };
+
+        // 添加一次性事件监听
+        const modal = document.querySelector('.modal');
+        if (modal) {
+          modal.addEventListener('hidden.bs.modal', handleModalHidden, { once: true });
         }
       } catch (error) {
-        this.showMessage(`search function failed: ${error.message}`, 'error');
-        this.gids = [];
-        this.total = 0;
-        this.totalPages = 1;
-      } finally {
-        this.loading = false;
+        this.showMessage(`获取调用链数据失败: ${error.message}`, 'error');
+        this.showChart = false;
       }
-    }
+    },
   }
 };
 </script>
 
 <style scoped>
-.search-container {
-  position: relative;
+.runtime-analysis {
+  --primary-color: #4b96ff;
+  --secondary-color: #ff7875;
+  --success-color: #52c41a;
+  --warning-color: #faad14;
+  --danger-color: #ff4d4f;
+  --info-color: #40a9ff;
+  --text-primary: #1f1f1f;
+  --text-secondary: #666666;
+  --border-color: #e8e8e8;
+  --hover-color: #f6f6f6;
+  --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --transition-speed: 0.3s;
 }
 
-.suggestions-wrapper {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 0;
-  z-index: 9999;
-  pointer-events: none;
+.card {
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--card-shadow);
+  transition: transform var(--transition-speed), box-shadow var(--transition-speed);
+  margin-bottom: 1.5rem;
 }
 
-.function-suggestions {
-  position: absolute;
-  z-index: 9999;
-  width: calc(100% - 30px);
-  max-width: 600px;
-  max-height: 300px;
-  overflow-y: auto;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
-  background-color: white;
-  border: 1px solid #dee2e6;
-  border-radius: 0.375rem;
-  margin-top: 0;
-  top: 140px;
-  left: 50%;
-  transform: translateX(-50%);
-  pointer-events: auto;
-  padding: 0;
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
 }
 
-.function-suggestions .list-group-item {
-  border-left: none;
-  border-right: none;
-  border-radius: 0;
+.card-header {
+  background: #fff;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: 12px 12px 0 0 !important;
+  padding: 1rem 1.25rem;
+}
+
+.card-title {
+  margin: 0;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.btn {
+  border-radius: 4px;
+  padding: 0.375rem 0.75rem;
+  font-weight: normal;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  border: none;
+}
+
+.btn-primary:hover {
+  background-color: #3a85ff;
+  transform: none;
+}
+
+.btn-outline-primary {
+  border: 1px solid var(--primary-color);
+  color: var(--primary-color);
+  background-color: transparent;
+}
+
+.btn-outline-primary:hover {
+  background-color: var(--primary-color);
+  color: white;
+  transform: none;
+}
+
+.btn-success {
+  background-color: var(--success-color);
+  border: none;
+}
+
+.btn-success:hover {
+  background-color: #47ad15;
+}
+
+.btn-group {
+  gap: 4px;
+}
+
+.btn-group .btn {
+  border-radius: 4px !important;
+}
+
+.btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+}
+
+.btn i {
+  font-size: 0.875rem;
+  margin-right: 4px;
+}
+
+.btn-close {
+  font-size: 1rem;
+  padding: 0.5rem;
+}
+
+.pagination .page-link {
+  border-radius: 4px;
+  margin: 0 2px;
+  padding: 0.375rem 0.75rem;
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  background-color: #fff;
+}
+
+.pagination .page-link:hover {
+  background-color: #f8f9fa;
+  color: var(--primary-color);
+  transform: none;
+}
+
+.pagination .page-item.active .page-link {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: white;
+}
+
+.badge {
+  padding: 0.4em 0.8em;
+  font-weight: 500;
+  border-radius: 4px;
+}
+
+.badge.bg-danger {
+  background-color: rgba(255, 77, 79, 0.1) !important;
+  color: #ff4d4f;
+  border: 1px solid rgba(255, 77, 79, 0.2);
+}
+
+.badge.bg-secondary {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+  color: #666;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.alert-info {
+  background-color: rgba(64, 169, 255, 0.1);
+  border: 1px solid rgba(64, 169, 255, 0.2);
+  color: var(--info-color);
   padding: 0.75rem 1rem;
-  font-family: 'Consolas', 'Monaco', monospace;
-  transition: all 0.2s ease;
-  cursor: pointer;
+  margin-bottom: 1rem;
+  border-radius: 6px;
 }
 
-.function-suggestions .list-group-item:first-child {
-  border-top: none;
+.table {
+  margin: 0;
 }
 
-.function-suggestions .list-group-item:last-child {
+.table thead th {
+  background-color: #f8f9fa;
+  color: var(--text-primary);
+  font-weight: 600;
+  border-bottom: 1px solid var(--border-color);
+  padding: 0.75rem 1rem;
+}
+
+.table td {
+  padding: 0.75rem 1rem;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.table tbody tr:last-child td {
   border-bottom: none;
 }
 
-.function-suggestions .list-group-item:hover {
-  background-color: #f8f9fa;
-  color: #0d6efd;
+.table-warning {
+  background-color: rgba(250, 173, 20, 0.05);
 }
 
-.function-suggestions .list-group-item-action:active {
-  background-color: #e9ecef;
+.pagination {
+  margin: 1rem 0;
 }
 
-.pagination-info {
+.message-container {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  z-index: 1000;
+}
+
+.message-box {
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
   display: flex;
   align-items: center;
+  gap: 0.5rem;
+  animation: slideIn 0.3s ease-out;
 }
 
-/* 阻塞阈值控件样式 */
+@keyframes slideIn {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
 .threshold-control {
   display: flex;
   align-items: center;
   background-color: #f8f9fa;
-  padding: 8px 12px;
-  border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  padding: 0.75rem;
+  border-radius: 8px;
 }
 
 .threshold-control .form-label {
-  color: #495057;
-  white-space: nowrap;
+  margin-bottom: 0;
+  margin-right: 1rem;
+  color: var(--text-primary);
 }
 
 .threshold-control .input-group {
   width: auto;
-  flex-wrap: nowrap;
+  margin-right: 0.5rem;
 }
 
 .threshold-control .form-control {
-  text-align: center;
-  font-weight: 500;
+  width: 120px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px 0 0 6px;
+}
+
+.threshold-control .input-group-text {
+  background-color: #fff;
+  border: 1px solid var(--border-color);
+  border-left: none;
+  color: var(--text-secondary);
 }
 
 .threshold-control .btn-primary {
-  min-width: 80px;
+  background-color: var(--primary-color);
+  border: none;
+  padding: 0.375rem 1rem;
 }
 
-@media (max-width: 768px) {
-  .pagination-info {
-    margin-top: 1rem;
-  }
-  
-  .function-suggestions {
-    width: 90%;
-    top: 180px;
-  }
-  
-  .card-header {
-    flex-direction: column;
-    align-items: flex-start !important;
-  }
-  
-  .card-header .d-flex {
-    margin-top: 10px;
-    width: 100%;
-  }
-  
-  .threshold-control {
-    width: 100%;
-    margin-bottom: 10px;
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  
-  .threshold-control .form-label {
-    margin-bottom: 5px !important;
-  }
-  
-  .threshold-control .input-group {
-    width: 100%;
-  }
+.display-4 {
+  background: linear-gradient(20deg, var(--primary-color), var(--info-color));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 500;
 }
 
-/* 消息提示样式 */
-.message-container {
-  position: fixed;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 9999;
-  min-width: 300px;
-  max-width: 80%;
-}
-
-.message-box {
-  padding: 10px 20px;
+code {
+  color: var(--primary-color);
+  padding: 0.2em 0.4em;
   border-radius: 4px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-  display: flex;
-  align-items: center;
-  animation: message-fade-in 0.3s;
+  font-size: 0.9em;
+  transition: all var(--transition-speed);
 }
 
-.message-box i {
-  margin-right: 10px;
-  font-size: 16px;
+code:hover {
+  background-color: rgba(255, 120, 117, 0.2);
 }
 
-.message-info {
-  background-color: #f4f4f5;
-  border: 1px solid #ebeef5;
-  color: #909399;
+.spinner-border {
+  color: var(--primary-color) !important;
 }
 
-.message-success {
-  background-color: #f0f9eb;
-  border: 1px solid #e1f3d8;
-  color: #67c23a;
+.chart-container {
+  background-color: white;
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: var(--card-shadow);
 }
 
-.message-warning {
-  background-color: #fdf6ec;
-  border: 1px solid #faecd8;
-  color: #e6a23c;
+.alert {
+  border-radius: 8px;
+  border: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
-.message-error {
-  background-color: #fef0f0;
-  border: 1px solid #fde2e2;
-  color: #f56c6c;
+.suggestions-wrapper {
+  position: absolute;
+  width: 100%;
+  max-height: 300px;
+  overflow-y: auto;
+  background: white;
+  border-radius: 8px;
+  box-shadow: var(--card-shadow);
+  z-index: 1000;
 }
 
-@keyframes message-fade-in {
-  0% {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.function-suggestions .list-group-item {
+  border: none;
+  padding: 0.75rem 1rem;
+  transition: all var(--transition-speed);
 }
-</style> 
+
+.function-suggestions .list-group-item:hover {
+  background-color: rgba(75, 150, 255, 0.05);
+  color: var(--primary-color);
+  transform: translateX(5px);
+}
+</style>

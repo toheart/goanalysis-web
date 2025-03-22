@@ -1,4 +1,4 @@
-import { createApp } from 'vue'
+import { createApp, defineAsyncComponent } from 'vue'
 import App from './App.vue'
 import router from './router'
 import i18n from './i18n' // 引入i18n配置
@@ -22,6 +22,11 @@ cytoscape.use(popper);
 
 // 创建应用实例
 const app = createApp(App)
+
+// 注册全局组件
+app.component('tree-node', defineAsyncComponent(() => 
+  import('./components/runtime/components/TreeNode.vue')
+))
 
 // 使用插件
 app.use(router)

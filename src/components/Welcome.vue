@@ -1,16 +1,16 @@
 <template>
   <div class="welcome-page">
-    <div class="container py-5">
-      <div class="text-center mb-5">
-        <h1 class="display-4 fw-bold text-primary">{{ $t('welcome.title') }}</h1>
-        <p class="lead">{{ $t('welcome.subtitle') }}</p>
+    <div class="container py-4">
+      <div class="text-center mb-4">
+        <h1 class="display-5 fw-bold title-gradient mb-2">{{ $t('welcome.title') }}</h1>
+        <p class="lead mb-0">{{ $t('welcome.subtitle') }}</p>
       </div>
 
-      <div class="row justify-content-center mb-5">
+      <div class="row justify-content-center mb-4">
         <div class="col-md-8">
-          <div class="card shadow-lg border-0">
-            <div class="card-body p-5">
-              <h2 class="card-title text-center mb-4"><i class="bi bi-info-circle me-2"></i>{{ $t('welcome.about.title') }}</h2>
+          <div class="card shadow-sm border-0 hover-card">
+            <div class="card-body p-4">
+              <h2 class="card-title fs-4 mb-3"><i class="bi bi-info-circle text-primary me-2"></i>{{ $t('welcome.about.title') }}</h2>
               <p class="card-text">
                 {{ $t('welcome.about.content') }}
               </p>
@@ -19,31 +19,31 @@
         </div>
       </div>
 
-      <h2 class="text-center mb-4"><i class="bi bi-tools me-2"></i>{{ $t('welcome.features') }}</h2>
+      <h2 class="text-center fs-4 mb-4"><i class="bi bi-tools text-primary me-2"></i>{{ $t('welcome.features') }}</h2>
       
       <!-- 程序运行分析功能区 -->
-      <div class="card mb-5">
-        <div class="card-header bg-primary text-white">
-          <h3 class="h5 mb-0"><i class="bi bi-activity me-2"></i>{{ $t('welcome.runtime.title') }}</h3>
+      <div class="card mb-4 feature-card">
+        <div class="card-header bg-primary text-white py-3">
+          <h3 class="h5 mb-0 d-flex align-items-center"><i class="bi bi-activity me-2"></i>{{ $t('welcome.runtime.title') }}</h3>
         </div>
-        <div class="card-body">
-          <div class="row">
+        <div class="card-body p-4">
+          <div class="row g-4">
             <div class="col-md-7">
               <p class="card-text">
                 {{ $t('welcome.runtime.description') }}
               </p>
               
               <!-- 项目插桩区域 -->
-              <div class="card mt-3 mb-3">
-                <div class="card-header bg-gray text-white">
-                  <h5 class="mb-0"><i class="bi bi-code-square me-2"></i>{{ $t('welcome.runtime.instrumentation.title') }}</h5>
+              <div class="card mt-3 mb-3 inner-card">
+                <div class="card-header bg-gray text-white py-2">
+                  <h5 class="mb-0 fs-5"><i class="bi bi-code-square me-2"></i>{{ $t('welcome.runtime.instrumentation.title') }}</h5>
                 </div>
-                <div class="card-body">
+                <div class="card-body p-3">
                   <div class="input-group mb-3">
-                    <span class="input-group-text"><i class="bi bi-folder"></i></span>
+                    <span class="input-group-text bg-light"><i class="bi bi-folder"></i></span>
                     <input 
                       type="text" 
-                      class="form-control" 
+                      class="form-control"
                       :placeholder="$t('welcome.runtime.instrumentation.placeholder')" 
                       v-model="projectPath"
                       :disabled="isInstrumenting"
@@ -57,13 +57,13 @@
                       <i class="bi bi-code-square me-1" v-else></i>{{ isInstrumenting ? $t('welcome.runtime.instrumentation.processing') : $t('welcome.runtime.instrumentation.button') }}
                     </button>
                   </div>
-                  <small class="text-muted">{{ $t('welcome.runtime.instrumentation.hint') }}</small>
+                  <small class="text-muted fst-italic">{{ $t('welcome.runtime.instrumentation.hint') }}</small>
                   
                   <!-- 插桩结果提示 -->
-                  <div v-if="instrumentError" class="alert alert-danger mt-3">
+                  <div v-if="instrumentError" class="alert alert-danger mt-3 mb-0">
                     <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ instrumentError }}
                   </div>
-                  <div v-if="instrumentSuccess" class="alert alert-success mt-3">
+                  <div v-if="instrumentSuccess" class="alert alert-success mt-3 mb-0">
                     <i class="bi bi-check-circle-fill me-2"></i>{{ instrumentSuccess }}
                     <div class="mt-2">
                       <button class="btn btn-sm btn-info ms-2" @click="showUserManual = true">
@@ -75,10 +75,10 @@
               </div>
             </div>
             <div class="col-md-5 d-flex align-items-center justify-content-center">
-              <div class="text-center">
-                <i class="bi bi-activity display-1 text-primary mb-3"></i>
+              <div class="text-center action-box p-4">
+                <i class="bi bi-activity display-1 text-primary mb-3 action-icon"></i>
                 <div>
-                  <router-link to="/allgids" class="btn btn-primary btn-lg">
+                  <router-link to="/allgids" class="btn btn-primary btn-lg action-btn">
                     <i class="bi bi-arrow-right me-1"></i>{{ $t('welcome.runtime.viewAnalysis') }}
                   </router-link>
                 </div>
@@ -91,7 +91,7 @@
       <!-- 使用手册弹窗 -->
       <div v-if="showUserManual" class="modal fade show" tabindex="-1" style="display: block;">
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
-          <div class="modal-content">
+          <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-primary text-white">
               <h5 class="modal-title"><i class="bi bi-book me-2"></i>插桩后使用手册</h5>
               <button type="button" class="btn-close btn-close-white" @click="showUserManual = false"></button>
@@ -100,13 +100,13 @@
               <div class="user-manual">
                 <h4 class="mb-3 text-primary fw-bold"><i class="bi bi-book-half me-2"></i>插桩后如何使用</h4>
                 
-                <div class="alert alert-info border-left">
+                <div class="alert alert-info border-left mb-4">
                   <div class="d-flex align-items-center">
                     <div class="me-3">
                       <i class="bi bi-info-circle-fill text-primary" style="font-size: 2rem;"></i>
                     </div>
                     <div>
-                      <h5 class="mb-1">插桩已完成！</h5>
+                      <h5 class="mb-1 fw-bold">插桩已完成！</h5>
                       <p class="mb-0">现在您需要按照以下步骤运行您的程序以收集运行时数据。</p>
                     </div>
                   </div>
@@ -301,103 +301,116 @@ export default {
 
 <style scoped>
 .welcome-page {
-  padding-top: 2rem;
-  padding-bottom: 4rem;
+  padding-bottom: 2rem;
 }
 
-.feature-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  font-size: 1.5rem;
+.title-gradient {
+  background: linear-gradient(45deg, var(--primary-color), #36b9cc);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  display: inline-block;
 }
 
-.card {
+.hover-card {
   transition: all 0.3s ease;
-  border-radius: 0.5rem;
-  overflow: hidden;
-  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
 }
 
-.card:hover {
-  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+.hover-card:hover {
   transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1) !important;
 }
 
-.card-header {
-  padding: 1rem 1.5rem;
-}
-
-.card-body {
-  padding: 1.5rem;
-}
-
-.display-1 {
-  font-size: 4rem;
-  opacity: 0.8;
-}
-
-/* 使用手册样式 */
-.user-manual .card {
+.feature-card {
+  overflow: hidden;
+  transition: all 0.3s ease;
   border: none;
-  box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.1);
 }
 
-.user-manual .card-header {
-  font-weight: 600;
+.feature-card:hover {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
 }
 
-.user-manual .steps-list {
-  padding-left: 1.5rem;
+.feature-card .card-header {
+  border-radius: 0;
 }
 
-.user-manual .steps-list li {
-  padding: 0.5rem 0;
+.inner-card {
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.03);
+  border: none;
 }
 
-.user-manual .features-list {
-  padding-left: 1.2rem;
+.bg-gray {
+  background-color: var(--gray-color);
 }
 
-.user-manual .features-list li {
-  padding: 0.3rem 0;
-  list-style-type: none;
+.action-box {
+  background: rgba(71, 133, 255, 0.03);
+  border-radius: 12px;
+  border: 1px dashed rgba(71, 133, 255, 0.3);
+  transition: all 0.3s ease;
 }
 
-.user-manual .code-block {
+.action-box:hover {
+  background: rgba(71, 133, 255, 0.06);
+  border-color: rgba(71, 133, 255, 0.5);
+}
+
+.action-icon {
+  animation: pulse 2s infinite;
+}
+
+.action-btn {
+  box-shadow: 0 5px 15px rgba(71, 133, 255, 0.3);
+  transition: all 0.3s ease;
+}
+
+.action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(71, 133, 255, 0.4);
+}
+
+.border-left {
+  border-left: 4px solid var(--primary-color);
+}
+
+.code-block {
   background-color: #f8f9fa;
+  border-radius: 6px;
+  padding: 1rem;
   color: #212529;
-  border-radius: 0.25rem;
-  font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  font-size: 0.875rem;
-  padding: 0.5rem;
-  margin-bottom: 0;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
 }
 
-.user-manual .accordion-button:not(.collapsed) {
-  background-color: rgba(13, 110, 253, 0.1);
-  color: #0d6efd;
+.steps-list li {
+  margin-bottom: 0.75rem;
 }
 
-.user-manual .accordion-button:focus {
-  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+.features-list {
+  list-style: none;
+  padding-left: 0.5rem;
 }
 
-.user-manual .alert-info {
-  background-color: #e8f4fd;
-  border-color: #b8daff;
-}
-
-.user-manual .border-left {
-  border-left: 4px solid #0d6efd !important;
-  border-radius: 0.25rem;
+.features-list li {
+  margin-bottom: 0.5rem;
 }
 
 .modal-content {
-  border-radius: 0.5rem;
-  overflow: hidden;
+  border-radius: 12px;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 </style> 
