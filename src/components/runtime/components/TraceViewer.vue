@@ -145,7 +145,7 @@
                   </div>
                 </div>
                 <div class="text-center mt-4">
-                  <button class="btn btn-primary" @click="showUploadModal = true">
+                  <button class="btn btn-primary" @click="openUploadModal">
                     <i class="bi bi-upload me-2"></i>上传文件
                   </button>
                 </div>
@@ -199,7 +199,7 @@
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">上传运行时分析文件</h5>
-            <button type="button" class="btn-close" @click="showUploadModal = false"></button>
+            <button type="button" class="btn-close" @click="closeUploadModal"></button>
           </div>
           <div class="modal-body">
             <div v-if="uploadStatus.uploading" class="text-center py-3">
@@ -233,7 +233,7 @@
             </form>
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" @click="showUploadModal = false" :disabled="uploadStatus.uploading">取消</button>
+            <button type="button" class="btn btn-secondary" @click="closeUploadModal" :disabled="uploadStatus.uploading">取消</button>
             <button type="button" class="btn btn-primary" @click="uploadFile" :disabled="!uploadForm.file || uploadStatus.uploading">
               <i class="bi bi-upload me-2"></i>上传
             </button>
@@ -553,7 +553,14 @@ export default {
           description: '',
           contentType: ''
         };
-        document.getElementById('file').value = '';
+        
+        // 安全地重置文件输入框
+        this.$nextTick(() => {
+          const fileInput = document.getElementById('file');
+          if (fileInput) {
+            fileInput.value = '';
+          }
+        });
       } catch (error) {
         this.showMessage('文件上传失败: ' + (error.response?.data || error.message || '未知错误'), 'error');
       } finally {
@@ -614,6 +621,54 @@ export default {
       console.log('TraceViewer - Language changed:', event.detail.locale);
       // 强制刷新组件中的国际化文本
       this.$forceUpdate();
+    },
+    
+    // 处理模态框关闭
+    closeUploadModal() {
+      // 如果正在上传，不允许关闭
+      if (this.uploadStatus.uploading) {
+        return;
+      }
+      
+      // 重置表单数据
+      this.uploadForm = {
+        file: null,
+        description: '',
+        contentType: ''
+      };
+      
+      // 关闭模态框
+      this.showUploadModal = false;
+    },
+    
+    // 打开上传模态框
+    openUploadModal() {
+      // 重置上传表单
+      this.uploadForm = {
+        file: null,
+        description: '',
+        contentType: ''
+      };
+      
+      // 重置上传状态
+      this.uploadStatus = {
+        uploading: false,
+        progress: 0,
+        currentChunk: 0,
+        totalChunks: 0,
+        fileId: ''
+      };
+      
+      // 打开模态框
+      this.showUploadModal = true;
+      
+      // 确保DOM更新后清空文件输入框
+      this.$nextTick(() => {
+        const fileInput = document.getElementById('file');
+        if (fileInput) {
+          fileInput.value = '';
+        }
+      });
     }
   }
 };
