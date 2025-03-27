@@ -209,7 +209,22 @@
                 <tbody>
                   <tr v-for="(param, index) in parameters" :key="index">
                     <td class="text-center"><span class="badge bg-secondary">{{ param.pos }}</span></td>
-                    <td class="param-value">{{ param.param }}</td>
+                    <td class="param-value">
+                      <div class="param-content-wrapper">
+                        <div v-if="param.isLong && !param.expanded" class="truncated-param">
+                          {{ truncateParam(param.param) }}
+                        </div>
+                        <div v-else class="full-param">
+                          {{ param.param }}
+                        </div>
+                        <button v-if="param.isLong" 
+                                class="btn btn-sm toggle-param-btn" 
+                                @click="toggleParamExpand(index)">
+                          <i class="bi" :class="param.expanded ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+                          {{ param.expanded ? '收起' : '展开' }}
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -313,6 +328,9 @@ export default {
       currentNodeId: null, // 当前选中的节点ID
       treeChartError: null, // 树形图错误信息
       chartInstance: null, // ECharts实例
+      
+      // 参数显示相关
+      paramMaxLength: 200, // 参数最大显示长度，超过则截断
     };
   },
   
@@ -864,7 +882,17 @@ export default {
         const response = await axios.post(`/api/runtime/params/${id}`, {
           dbpath: dbpath
         });
-        this.parameters = response.data.params || []; // 修改为返回的参数格式
+        
+        // 处理参数，添加展开状态标记
+        this.parameters = (response.data.params || []).map(param => {
+          const isLong = param.param && param.param.length > this.paramMaxLength;
+          return {
+            ...param,
+            isLong,
+            expanded: false // 默认折叠
+          };
+        });
+        
         this.showModal(); // 显示模态框
       } catch (error) {
         console.error("Error fetching parameters:", error);
@@ -888,6 +916,20 @@ export default {
         modal.hide();
       } else {
         console.error("Modal element not found.");
+      }
+    },
+    
+    // 截断参数文本
+    truncateParam(text) {
+      if (!text) return '';
+      if (text.length <= this.paramMaxLength) return text;
+      return text.substring(0, this.paramMaxLength) + '...';
+    },
+    
+    // 切换参数展开/折叠状态
+    toggleParamExpand(index) {
+      if (this.parameters[index]) {
+        this.parameters[index].expanded = !this.parameters[index].expanded;
       }
     },
     
@@ -1482,6 +1524,32 @@ export default {
   border-left: 3px solid #17a2b8;
   font-size: 0.9rem;
   line-height: 1.5;
+}
+
+.param-content-wrapper {
+  position: relative;
+}
+
+.truncated-param, .full-param {
+  transition: all 0.3s ease;
+}
+
+.toggle-param-btn {
+  margin-top: 8px;
+  color: #17a2b8;
+  background-color: transparent;
+  border: 1px solid #17a2b8;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  padding: 2px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+}
+
+.toggle-param-btn:hover {
+  background-color: rgba(23, 162, 184, 0.1);
 }
 
 /* 统计卡片样式 */

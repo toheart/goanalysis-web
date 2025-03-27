@@ -14,7 +14,7 @@
             <li class="nav-item">
               <router-link to="/" class="nav-link nav-button" exact-active-class="active">
                 <i class="bi bi-house-door me-1"></i>{{ $t('nav.home') }}
-              </router-link>image.png
+              </router-link>
             </li>
             <li class="nav-item">
               <router-link to="/allgids" class="nav-link nav-button" active-class="active">
