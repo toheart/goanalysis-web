@@ -211,7 +211,7 @@
                     <td class="text-center"><span class="badge bg-secondary">{{ param.pos }}</span></td>
                     <td class="param-value">
                       <div class="param-content-wrapper">
-                        <!-- JSON对象展示 -->
+                        <!-- JSON对象展示 - 使用vue-json-viewer -->
                         <div v-if="param.isJson">
                           <div v-if="param.isLong && !param.expanded" class="truncated-param">
                             <pre class="json-preview">{{ truncateParam(formatJson(param.param)) }}</pre>
@@ -227,16 +227,27 @@
                               <span class="json-toolbar-title">JSON数据</span>
                               <div class="json-toolbar-actions">
                                 <button class="btn btn-sm btn-outline-secondary action-btn"
-                                        @click="collapseAllJsonNodes">
+                                        @click="collapseJsonViewer">
                                   <i class="bi bi-arrows-collapse me-1"></i>全部折叠
                                 </button>
                                 <button class="btn btn-sm btn-outline-secondary action-btn"
-                                        @click="expandAllJsonNodes">
+                                        @click="expandJsonViewer">
                                   <i class="bi bi-arrows-expand me-1"></i>全部展开
                                 </button>
                               </div>
                             </div>
-                            <pre class="json-content" v-html="highlightJson(param.param)" ref="jsonViewer"></pre>
+                            <json-viewer 
+                              :value="param.parsedJson || JSON.parse(param.param)" 
+                              :expand-depth="2"
+                              :expanded="jsonViewerOptions.expanded"
+                              :copyable="jsonViewerOptions.copyable"
+                              :sort="jsonViewerOptions.sort"
+                              :boxed="jsonViewerOptions.boxed"
+                              :theme="jsonViewerOptions.theme"
+                              :show-double-quotes="jsonViewerOptions.showDoubleQuotes"
+                              :show-array-index="jsonViewerOptions.showArrayIndex"
+                              class="json-viewer-container"
+                            />
                             <div class="param-controls">
                               <button v-if="param.isLong" 
                                       class="btn btn-sm btn-outline-secondary toggle-param-btn" 
@@ -329,8 +340,12 @@
 import axios from '../../../axios';
 import { Modal } from 'bootstrap';
 import { initChart, handleChartResize, disposeChart, createTreeChartOption } from '../utils/chartUtils';
+import JsonViewer from 'vue-json-viewer';
 
 export default {
+  components: {
+    JsonViewer
+  },
   data() {
     return {
       gid: this.$route.params.gid,
@@ -374,9 +389,13 @@ export default {
       // 参数显示相关
       paramMaxLength: 200, // 参数最大显示长度，超过则截断
       jsonViewerOptions: { 
-        collapsed: 3,  // 默认展开3层 
+        expanded: 2,  // 默认展开2层
         copyable: true, // 允许复制
-        collapseStringsAfterLength: 70, // 字符串超过70个字符折叠
+        sort: false, // 不对键进行排序
+        boxed: true, // 添加边框样式
+        theme: 'jv-light', // 使用亮色主题
+        showDoubleQuotes: false, // 不显示双引号
+        showArrayIndex: true // 显示数组索引
       },
     };
   },
@@ -964,6 +983,9 @@ export default {
           };
         });
         
+        // 重置 jsonViewerOptions 的 expanded 值为默认值
+        this.jsonViewerOptions.expanded = 2;
+        
         this.showModal(); // 显示模态框
       } catch (error) {
         console.error("Error fetching parameters:", error);
@@ -1403,68 +1425,6 @@ export default {
       }
     },
     
-    // 高亮显示JSON
-    highlightJson(text) {
-      if (!text) return '';
-      try {
-        let obj = (typeof text === 'string') ? JSON.parse(text) : text;
-        
-        // 递归构建HTML结构，支持折叠/展开的JSON树
-        const buildHtmlTree = (obj, level = 0) => {
-          if (obj === null) return '<span class="json-null">null</span>';
-          
-          const indent = '&nbsp;&nbsp;'.repeat(level);
-          const nextIndent = '&nbsp;&nbsp;'.repeat(level + 1);
-          
-          if (typeof obj === 'object' && obj !== null) {
-            const isArray = Array.isArray(obj);
-            const bracketOpen = isArray ? '[' : '{';
-            const bracketClose = isArray ? ']' : '}';
-            const keys = Object.keys(obj);
-            
-            if (keys.length === 0) {
-              return `<span>${isArray ? '[]' : '{}'}</span>`;
-            }
-            
-            // 折叠状态下显示简要信息
-            const summary = isArray 
-              ? `${bracketOpen} <span class="json-item-count">${keys.length} 项</span>` 
-              : `${bracketOpen} <span class="json-item-count">${keys.length} 个属性</span>`;
-            
-            let html = `<details ${level < 2 ? 'open' : ''} class="json-details json-level-${level}">
-              <summary class="json-summary">${summary}</summary>\n`;
-            
-            html += keys.map((key, index) => {
-              const value = obj[key];
-              const comma = index < keys.length - 1 ? ',' : '';
-              
-              if (isArray) {
-                return `${nextIndent}${buildHtmlTree(value, level + 1)}${comma}`;
-              } else {
-                return `${nextIndent}<span class="json-key">"${key}"</span>: ${buildHtmlTree(value, level + 1)}${comma}`;
-              }
-            }).join('\n');
-            
-            html += `\n${indent}<span class="json-summary-end">${bracketClose}</span></details>`;
-            return html;
-          } else if (typeof obj === 'string') {
-            return `<span class="json-string">"${obj.replace(/</g, '&lt;').replace(/>/g, '&gt;')}"</span>`;
-          } else if (typeof obj === 'number') {
-            return `<span class="json-number">${obj}</span>`;
-          } else if (typeof obj === 'boolean') {
-            return `<span class="json-boolean">${obj}</span>`;
-          } else {
-            return `<span>${String(obj)}</span>`;
-          }
-        };
-        
-        return buildHtmlTree(obj);
-      } catch (e) {
-        console.error('JSON高亮错误:', e);
-        return text;
-      }
-    },
-    
     // 复制到剪贴板
     copyToClipboard(text) {
       try {
@@ -1490,65 +1450,25 @@ export default {
     },
     
     // 全部折叠JSON节点
-    collapseAllJsonNodes() {
-      if (!this.$refs.jsonViewer) return;
-      
-      // 处理ref可能是数组的情况
-      const elements = Array.isArray(this.$refs.jsonViewer) 
-        ? this.$refs.jsonViewer 
-        : [this.$refs.jsonViewer];
-      
-      elements.forEach(element => {
-        if (element && element.querySelectorAll) {
-          const allDetails = element.querySelectorAll('details');
-          allDetails.forEach(detail => {
-            detail.open = false;
-          });
-        }
-      });
+    collapseJsonViewer() {
+      // 更新 jsonViewerOptions
+      this.jsonViewerOptions.expanded = 0;
+      // 强制更新组件
+      this.$forceUpdate();
     },
     
     // 全部展开JSON节点
-    expandAllJsonNodes() {
-      if (!this.$refs.jsonViewer) return;
-      
-      // 处理ref可能是数组的情况
-      const elements = Array.isArray(this.$refs.jsonViewer) 
-        ? this.$refs.jsonViewer 
-        : [this.$refs.jsonViewer];
-      
-      elements.forEach(element => {
-        if (element && element.querySelectorAll) {
-          const allDetails = element.querySelectorAll('details');
-          allDetails.forEach(detail => {
-            detail.open = true;
-          });
-        }
-      });
+    expandJsonViewer() {
+      // 更新 jsonViewerOptions
+      this.jsonViewerOptions.expanded = 10; // 设置一个较大的值来展开所有层级
+      // 强制更新组件
+      this.$forceUpdate();
     },
     
     // 初始化JSON查看器的事件监听
     initJsonViewer() {
-      if (!this.$refs.jsonViewer) return;
-      
-      // 处理ref可能是数组的情况
-      const elements = Array.isArray(this.$refs.jsonViewer) 
-        ? this.$refs.jsonViewer 
-        : [this.$refs.jsonViewer];
-      
-      elements.forEach(element => {
-        if (element && element.querySelectorAll) {
-          const allSummaries = element.querySelectorAll('.json-summary');
-          
-          // 为每个summary添加点击事件
-          allSummaries.forEach(summary => {
-            // 移除旧的事件监听器(如果存在)
-            summary.removeEventListener('click', this.handleSummaryClick);
-            // 添加新的事件监听器
-            summary.addEventListener('click', this.handleSummaryClick);
-          });
-        }
-      });
+      // vue-json-viewer 不需要手动初始化事件监听
+      console.log('vue-json-viewer 已初始化');
     },
     
     // 处理点击summary的事件
@@ -1826,164 +1746,54 @@ export default {
   position: relative;
 }
 
-.json-content {
-  background-color: #282c34;
-  color: #abb2bf;
-  padding: 15px;
-  border-radius: 0 0 6px 6px;
-  margin: 0;
-  overflow: auto;
-  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-  font-size: 0.9rem;
-  line-height: 1.6;
+/* vue-json-viewer 自定义样式 */
+.json-viewer-container {
   max-height: 70vh;
-  box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+  overflow: auto;
+  padding: 10px;
+  border-radius: 0 0 6px 6px;
+  background-color: #f8f9fa;
+  margin-bottom: 10px;
 }
 
-/* JSON语法高亮 */
-.json-key {
-  color: #e06c75;
+.json-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #f1f1f1;
+  border-radius: 6px 6px 0 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid #ddd;
 }
 
-.json-string {
-  color: #98c379;
+.json-toolbar-title {
+  font-weight: 600;
+  color: #333;
+  font-size: 0.9rem;
 }
 
-.json-number {
-  color: #d19a66;
+.json-toolbar-actions {
+  display: flex;
+  gap: 6px;
 }
 
-.json-boolean {
-  color: #c678dd;
+.action-btn {
+  padding: 2px 8px;
+  font-size: 0.8rem;
+  border-color: #ddd;
+  color: #555;
 }
 
-.json-null {
-  color: #c678dd;
+.action-btn:hover {
+  background-color: rgba(52, 152, 219, 0.2);
+  border-color: #4080bf;
+  color: #333;
 }
 
 .param-controls {
   display: flex;
   margin-top: 8px;
   justify-content: flex-end;
-}
-
-/* 添加JSON树状结构样式 */
-.json-details {
-  margin-left: 0.5rem;
-  position: relative;
-  padding-left: 4px;
-  border-left: 1px dashed rgba(171, 178, 191, 0.3);
-  margin-bottom: 4px;
-}
-
-.json-level-0 {
-  border-left: none;
-}
-
-.json-summary {
-  cursor: pointer;
-  color: #abb2bf;
-  font-weight: bold;
-  list-style: none;
-  user-select: none;
-  padding: 4px 8px;
-  border-radius: 6px;
-  margin: 3px 0;
-  background-color: rgba(171, 178, 191, 0.1);
-  display: inline-block;
-  transition: all 0.3s ease;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-  position: relative;
-  z-index: 1;
-}
-
-.json-summary:hover {
-  background-color: rgba(171, 178, 191, 0.2);
-  transform: translateX(2px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
-}
-
-.json-summary:active {
-  background-color: rgba(171, 178, 191, 0.3);
-  transform: translateX(0);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-.json-summary::-webkit-details-marker {
-  display: none;
-}
-
-.json-summary::before {
-  content: '▶';
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  font-size: 10px;
-  margin-right: 6px;
-  transition: all 0.3s ease;
-  color: #e06c75;
-  background-color: rgba(224, 108, 117, 0.1);
-  border-radius: 50%;
-  padding: 2px;
-}
-
-details[open] > .json-summary::before {
-  transform: rotate(90deg);
-  color: #98c379;
-  background-color: rgba(152, 195, 121, 0.1);
-}
-
-details:not([open]) > .json-summary::before {
-  transform: rotate(0deg);
-}
-
-.json-item-count {
-  color: #d19a66;
-  font-size: 0.85em;
-  margin-left: 4px;
-  background-color: rgba(209, 154, 102, 0.1);
-  padding: 2px 6px;
-  border-radius: 10px;
-  font-weight: normal;
-}
-
-.json-summary-end {
-  color: #abb2bf;
-  font-weight: bold;
-  display: block;
-  padding: 2px 0;
-}
-
-/* 深色主题优化 */
-@media (prefers-color-scheme: dark) {
-  .json-preview {
-    background-color: #333333;
-    border-color: #444444;
-    color: #e1e1e1;
-  }
-  
-  .json-content {
-    background-color: #1e2127;
-    color: #abb2bf;
-  }
-  
-  .json-summary, .json-summary-end {
-    color: #e1e1e1;
-  }
-  
-  .json-details {
-    border-left-color: rgba(225, 225, 225, 0.2);
-  }
-  
-  .json-summary {
-    background-color: rgba(225, 225, 225, 0.05);
-  }
-  
-  .json-summary:hover {
-    background-color: rgba(225, 225, 225, 0.1);
-  }
 }
 
 /* 统计卡片样式 */
@@ -2036,6 +1846,31 @@ details:not([open]) > .json-summary::before {
   .stat-value {
     color: #e1e1e1;
   }
+  
+  /* vue-json-viewer 暗黑模式 */
+  .json-viewer-container {
+    background-color: #2d2d2d;
+  }
+  
+  .json-toolbar {
+    background-color: #333333;
+    border-color: #444444;
+  }
+  
+  .json-toolbar-title {
+    color: #e1e1e1;
+  }
+  
+  .action-btn {
+    border-color: #555;
+    color: #ccc;
+  }
+  
+  .action-btn:hover {
+    background-color: rgba(52, 152, 219, 0.25);
+    border-color: #3498db;
+    color: #fff;
+  }
 }
 
 /* 查询控制面板样式 */
@@ -2072,6 +1907,10 @@ details:not([open]) > .json-summary::before {
   
   .card-body {
     padding: 1rem;
+  }
+  
+  .json-viewer-container {
+    max-height: 50vh;
   }
 }
   
@@ -2259,40 +2098,5 @@ details:not([open]) > .json-summary::before {
   .progress {
     background-color: #444444;
   }
-}
-
-/* JSON工具栏样式 */
-.json-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background-color: #1e2127;
-  border-radius: 6px 6px 0 0;
-  padding: 8px 12px;
-  border-bottom: 1px solid #373c47;
-}
-
-.json-toolbar-title {
-  font-weight: 600;
-  color: #abb2bf;
-  font-size: 0.9rem;
-}
-
-.json-toolbar-actions {
-  display: flex;
-  gap: 6px;
-}
-
-.action-btn {
-  padding: 2px 8px;
-  font-size: 0.8rem;
-  border-color: #555;
-  color: #abb2bf;
-}
-
-.action-btn:hover {
-  background-color: rgba(52, 152, 219, 0.2);
-  border-color: #4080bf;
-  color: #fff;
 }
 </style> 
