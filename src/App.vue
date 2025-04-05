@@ -41,7 +41,7 @@
     </main>
     <footer class="footer mt-5 py-3">
       <div class="container text-center">
-        <span class="footer-text">{{ $t('nav.title', 'Go代码分析平台') }} &copy; 2024</span>
+        <span class="footer-text">{{ $t('nav.title', 'Go代码分析平台') }} &copy; 2025</span>
       </div>
     </footer>
   </div>

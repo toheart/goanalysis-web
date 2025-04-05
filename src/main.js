@@ -9,6 +9,8 @@ import 'bootstrap/dist/css/bootstrap.min.css'
 import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 // 引入全局自定义样式
 import './assets/styles.css'
+// 引入 vue-json-viewer 的样式
+import 'vue-json-viewer/style.css'
 
 // 如果需要全局注册 Cytoscape 插件
 import cytoscape from 'cytoscape';

@@ -926,6 +926,28 @@ export default {
         this.showChart = false;
       }
     },
+    
+    // 未完成函数列表分页控制方法
+    prevUnfinishedFunctionsPage() {
+      if (this.unfinishedFunctionsPage > 1) {
+        this.unfinishedFunctionsPage--;
+        this.fetchUnfinishedFunctions();
+      }
+    },
+    
+    nextUnfinishedFunctionsPage() {
+      if (this.unfinishedFunctionsPage < this.unfinishedFunctionsTotalPages) {
+        this.unfinishedFunctionsPage++;
+        this.fetchUnfinishedFunctions();
+      }
+    },
+    
+    goToUnfinishedFunctionsPage(page) {
+      if (page >= 1 && page <= this.unfinishedFunctionsTotalPages) {
+        this.unfinishedFunctionsPage = page;
+        this.fetchUnfinishedFunctions();
+      }
+    }
   }
 };
 </script>
