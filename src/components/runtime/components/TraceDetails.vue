@@ -127,6 +127,7 @@
               <table class="table table-hover trace-table">
                 <thead class="table-light sticky-top">
                   <tr>
+                    <th scope="col" style="width: 80px">序号</th>
                     <th scope="col" style="min-width: 600px">函数名</th>
                     <th scope="col" style="width: 150px">操作</th>
                   </tr>
@@ -138,6 +139,9 @@
                       'is-expanded': expandedNodes.has(node.id),
                       'is-highlighted': isHighlighted(node.id)
                     }">
+                      <td class="text-center">
+                        <span class="badge bg-secondary">{{ node.seq || '-' }}</span>
+                      </td>
                       <td class="function-name-cell">
                       <div class="d-flex align-items-center">
                           <div class="function-indent" :style="{ width: `${(node.indent || 0) * 20}px` }"></div>
@@ -716,7 +720,8 @@ export default {
           parentId: node.parentId || '0',
           paramCount: typeof node.paramCount === 'number' ? node.paramCount : 0,
           gid: node.gid || this.gid,
-          params: Array.isArray(node.params) ? node.params : []
+          params: Array.isArray(node.params) ? node.params : [],
+          seq: node.seq || '-'  // 添加seq字段
         };
         
         // 检查节点是否可能有子节点
@@ -791,6 +796,7 @@ export default {
               timeCost: func.avgTime || 'N/A',
               parentId: node.id,
               paramCount: func.paramCount || 0, // 使用API返回的参数个数
+              seq: func.seq || '', // 添加seq字段
               hasChildren: false, // 初始假设没有子节点
               mayHaveChildren: true, // 但它可能有子节点
               loading: false

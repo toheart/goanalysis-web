@@ -55,123 +55,10 @@
             </div>
           </div>
         </div>
-        <div class="col-md-3">
-          <div class="card h-100">
-            <div class="card-body text-center">
-              <h5 class="card-title"><i class="bi bi-exclamation-triangle me-2"></i>未完成函数</h5>
-              <p class="display-4">{{ unfinishedFunctions.length || 0 }}</p>
-            </div>
-          </div>
-        </div>
+
       </div>
 
-      <!-- 未完成函数列表 -->
-      <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0"><i class="bi bi-exclamation-circle me-2"></i>未完成函数列表</h5>
-          <div class="d-flex align-items-center">
-            <div class="threshold-control me-3">
-              <label class="form-label mb-0 me-2 fw-bold">阻塞阈值：</label>
-              <div class="input-group">
-                <input 
-                  type="number" 
-                  class="form-control" 
-                  v-model="blockingThreshold" 
-                  min="100"
-                  step="100"
-                  style="width: 100px;"
-                >
-                <span class="input-group-text">ms</span>
-                <button class="btn btn-primary" @click="updateBlockingThreshold" title="应用阈值">
-                  <i class="bi bi-check-lg"></i> 应用
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="card-body">
-          <div v-if="loadingUnfinishedFunctions" class="text-center py-5">
-            <div class="spinner-border text-primary" role="status">
-              <span class="visually-hidden">加载中...</span>
-            </div>
-            <p class="mt-3">正在加载未完成函数数据...</p>
-          </div>
-          <div v-else-if="unfinishedFunctions.length === 0" class="text-center py-5">
-            <i class="bi bi-check-circle text-success display-4"></i>
-            <p class="mt-3">没有检测到未完成函数</p>
-          </div>
-          <div v-else>
-            <div class="alert alert-info mb-3">
-              <i class="bi bi-info-circle me-2"></i>
-              当函数运行时间超过 <strong>{{ blockingThreshold }}ms</strong> 时会被标记为阻塞状态
-            </div>
-            <div class="table-responsive">
-              <table class="table table-hover">
-                <thead class="table-light">
-                  <tr>
-                    <th>函数名称</th>
-                    <th class="text-center">GID</th>
-                    <th class="text-center">已运行时间</th>
-                    <th class="text-center">状态</th>
-                    <th class="text-center">操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(func, index) in unfinishedFunctions" :key="index" :class="{'table-warning': func.isBlocking}">
-                    <td><code>{{ func.name }}</code></td>
-                    <td class="text-center">
-                      <span class="badge bg-primary">{{ func.gid }}</span>
-                    </td>
-                    <td class="text-center">{{ func.runningTime || '未知' }}</td>
-                    <td class="text-center">
-                      <span v-if="func.isBlocking" class="badge bg-danger">
-                        <i class="bi bi-exclamation-triangle me-1"></i>阻塞
-                      </span>
-                      <span v-else class="badge bg-secondary">
-                        <i class="bi bi-hourglass-split me-1"></i>运行中
-                      </span>
-                    </td>
-                    <td class="text-center">
-                      <router-link 
-                        :to="{ name: 'TraceDetails', params: { gid: func.gid }, query: { highlight: func.functionId } }" 
-                        class="btn btn-sm btn-success"
-                        title="查看详情并高亮显示"
-                      >
-                        <i class="bi bi-eye me-1"></i>详情
-                      </router-link>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            
-            <!-- 分页控件 -->
-            <div class="d-flex justify-content-between align-items-center mt-3">
-              <div>
-                <span class="text-muted">共 {{ unfinishedFunctionsTotal }} 个未完成函数</span>
-              </div>
-              <nav aria-label="未完成函数分页">
-                <ul class="pagination mb-0">
-                  <li class="page-item" :class="{ disabled: unfinishedFunctionsPage <= 1 }">
-                    <a class="page-link" href="#" @click.prevent="prevUnfinishedFunctionsPage">
-                      <i class="bi bi-chevron-left"></i>
-                    </a>
-                  </li>
-                  <li v-for="page in displayedUnfinishedFunctionsPages" :key="page" 
-                      class="page-item" :class="{ active: page === unfinishedFunctionsPage }">
-                    <a class="page-link" href="#" @click.prevent="goToUnfinishedFunctionsPage(page)">{{ page }}</a>
-                  </li>
-                  <li class="page-item" :class="{ disabled: unfinishedFunctionsPage >= unfinishedFunctionsTotalPages }">
-                    <a class="page-link" href="#" @click.prevent="nextUnfinishedFunctionsPage">
-                      <i class="bi bi-chevron-right"></i>
-                    </a>
-                  </li>
-                </ul>
-              </nav>
-            </div>
-          </div>
-        </div>
-      </div>
+
 
       <!-- 热点函数分析 -->
       <div class="card mb-4">
@@ -226,19 +113,8 @@
 
       <!-- Goroutine列表 -->
       <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
+        <div class="card-header">
           <h5 class="mb-0"><i class="bi bi-list-ul me-2"></i>{{ $t('runtimeAnalysis.goroutineList.title') }}</h5>
-          <div class="pagination-info">
-            <span class="badge bg-secondary">{{ $t('runtimeAnalysis.goroutineList.currentPage') }}: {{ currentPage }} / {{ totalPages }}</span>
-            <div class="btn-group ms-2">
-              <button class="btn btn-sm btn-outline-primary" @click="prevPage" :disabled="currentPage <= 1">
-                <i class="bi bi-chevron-left"></i>
-              </button>
-              <button class="btn btn-sm btn-outline-primary" @click="nextPage" :disabled="currentPage >= totalPages">
-                <i class="bi bi-chevron-right"></i>
-              </button>
-            </div>
-          </div>
         </div>
         <div class="card-body p-0">
           <div class="table-responsive">
@@ -426,27 +302,14 @@ export default {
         avgTime: '0ms',
         maxDepth: 0
       },
-      unfinishedFunctions: [],
-      unfinishedFunctionsTotal: 0,
-      unfinishedFunctionsPage: 1,
-      unfinishedFunctionsLimit: 10,
-      unfinishedFunctionsTotalPages: 1,
-      blockingThreshold: 1000,
-      loadingUnfinishedFunctions: false,
+
       highlightedFunctionId: null
     };
   },
   mounted() {
     this.isComponentMounted = true;
     
-    // 从本地存储中恢复阻塞阈值设置
-    const savedThreshold = localStorage.getItem('blockingThreshold');
-    if (savedThreshold) {
-      const threshold = parseInt(savedThreshold);
-      if (!isNaN(threshold) && threshold >= 100) {
-        this.blockingThreshold = threshold;
-      }
-    }
+
     
     // 初始化数据
     this.initializeData();
@@ -492,22 +355,7 @@ export default {
       
       return pages;
     },
-    displayedUnfinishedFunctionsPages() {
-      const pages = [];
-      const maxVisiblePages = 5;
-      let startPage = Math.max(1, this.unfinishedFunctionsPage - Math.floor(maxVisiblePages / 2));
-      let endPage = Math.min(this.unfinishedFunctionsTotalPages, startPage + maxVisiblePages - 1);
-      
-      if (endPage - startPage + 1 < maxVisiblePages) {
-        startPage = Math.max(1, endPage - maxVisiblePages + 1);
-      }
-      
-      for (let i = startPage; i <= endPage; i++) {
-        pages.push(i);
-      }
-      
-      return pages;
-    },
+
     
     // 消息图标
     messageIcon() {
@@ -541,8 +389,6 @@ export default {
       this.fetchGIDs();
       this.fetchHotFunctions();
       this.fetchFunctionNames();
-      this.fetchUnfinishedFunctions();
-      
     },
     
     // 获取当前数据库路径
@@ -746,57 +592,7 @@ export default {
       }
     },
     
-    // 获取未完成函数列表
-    async fetchUnfinishedFunctions() {
-      try {
-        this.loadingUnfinishedFunctions = true;
-        const dbpath = this.getCurrentDbPath();
-        
-        if (!dbpath) {
-          this.showMessage('database path is empty', 'error');
-          this.loadingUnfinishedFunctions = false;
-          return;
-        }
-        
-        // 调用API获取未完成函数列表
-        const response = await fetch('/api/runtime/unfinished-functions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            page: this.unfinishedFunctionsPage,
-            limit: this.unfinishedFunctionsLimit,
-            dbpath: dbpath
-          })
-        });
-        
-        if (!response.ok) {
-          throw new Error(`API request failed: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        // 更新数据
-        this.unfinishedFunctions = data.functions || [];
-        this.unfinishedFunctionsTotal = data.total || 0;
-        this.unfinishedFunctionsTotalPages = Math.ceil(this.unfinishedFunctionsTotal / this.unfinishedFunctionsLimit) || 1;
-      } catch (error) {
-        this.showMessage(`get unfinished functions list failed: ${error.message}`, 'error');
-        this.unfinishedFunctions = [];
-        this.unfinishedFunctionsTotal = 0;
-        this.unfinishedFunctionsTotalPages = 1;
-      } finally {
-        this.loadingUnfinishedFunctions = false;
-      }
-    },
-    
-    // 更新阻塞阈值
-    updateBlockingThreshold() {
-      // 将阻塞阈值保存到本地存储
-      localStorage.setItem('blockingThreshold', this.blockingThreshold.toString());
-      this.showMessage('阻塞阈值已更新', 'success');
-    },
+
     
     // 处理文档点击事件
     handleDocumentClick(event) {
@@ -927,27 +723,7 @@ export default {
       }
     },
     
-    // 未完成函数列表分页控制方法
-    prevUnfinishedFunctionsPage() {
-      if (this.unfinishedFunctionsPage > 1) {
-        this.unfinishedFunctionsPage--;
-        this.fetchUnfinishedFunctions();
-      }
-    },
-    
-    nextUnfinishedFunctionsPage() {
-      if (this.unfinishedFunctionsPage < this.unfinishedFunctionsTotalPages) {
-        this.unfinishedFunctionsPage++;
-        this.fetchUnfinishedFunctions();
-      }
-    },
-    
-    goToUnfinishedFunctionsPage(page) {
-      if (page >= 1 && page <= this.unfinishedFunctionsTotalPages) {
-        this.unfinishedFunctionsPage = page;
-        this.fetchUnfinishedFunctions();
-      }
-    }
+
   }
 };
 </script>
