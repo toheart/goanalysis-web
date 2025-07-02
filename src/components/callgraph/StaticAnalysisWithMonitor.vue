@@ -1,65 +1,65 @@
 <template>
   <div class="static-analysis-with-monitor">
-    <!-- 路径输入和验证部分 -->
-    <div class="card mb-4">
-      <div class="card-header">
-        <h5 class="mb-0"><i class="bi bi-folder2-open me-2"></i>{{ $t('staticAnalysis.form.projectPath') }}</h5>
+    <!-- 项目分析卡片 -->
+    <div class="card mb-4 shadow-sm">
+      <div class="card-header bg-gradient-primary">
+        <h5 class="mb-0 text-white d-flex align-items-center">
+          <i class="bi bi-folder2-open me-2"></i>{{ $t('staticAnalysis.form.projectPath') }}
+        </h5>
       </div>
       <div class="card-body">
-        <div class="row">
-          <div class="col-md-8">
-            <div class="input-group mb-3">
-              <span class="input-group-text"><i class="bi bi-folder"></i></span>
+        <!-- 主要输入区域 -->
+        <div class="mb-4">
+          <div class="input-group">
+            <span class="input-group-text bg-light">
+              <i class="bi bi-folder text-primary"></i>
+            </span>
               <input 
                 type="text" 
-                class="form-control" 
+              class="form-control form-control-lg" 
                 :placeholder="$t('staticAnalysis.form.projectPathPlaceholder')" 
                 v-model="projectPath"
                 :disabled="isAnalyzing"
               >
               <button 
-                class="btn btn-primary" 
+              class="btn btn-primary px-4" 
                 @click="startAnalysis" 
                 :disabled="!projectPath || isAnalyzing"
               >
                 <span v-if="isAnalyzing" class="spinner-border spinner-border-sm me-2" role="status"></span>
+              <i class="bi bi-play-fill me-1" v-else></i>
                 {{ isAnalyzing ? $t('staticAnalysis.form.analyzing') : $t('staticAnalysis.form.startAnalysis') }}
               </button>
             </div>
             
-            <div v-if="pathError" class="alert alert-danger mt-2">
+          <!-- 错误提示 -->
+          <div v-if="pathError" class="alert alert-danger mt-3 mb-0">
               <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ pathError }}
-            </div>
-          </div>
-          <div class="col-md-4">
-            <div class="alert alert-info mb-0">
-              <h6><i class="bi bi-info-circle me-2"></i>{{ $t('staticAnalysis.form.tip') }}</h6>
-              <p class="mb-0 small">{{ $t('staticAnalysis.form.pathTip') }}</p>
-            </div>
           </div>
         </div>
         
         <!-- 分析选项 -->
-        <div class="row mt-3">
-          <div class="col-12">
-            <div class="card analysis-options-card" id="analysis-options">
-              <div class="card-header d-flex justify-content-between align-items-center bg-primary text-white">
-                <h6 class="mb-0"><i class="bi bi-gear me-2"></i>{{ $t('staticAnalysis.options.title') }}</h6>
-                <button class="btn btn-sm btn-light" @click="showOptions = !showOptions">
+        <div class="analysis-options">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="mb-0 text-primary">
+              <i class="bi bi-gear me-2"></i>{{ $t('staticAnalysis.options.title') }}
+            </h6>
+            <button 
+              class="btn btn-sm btn-outline-primary" 
+              @click="showOptions = !showOptions"
+            >
+              <i :class="showOptions ? 'bi bi-chevron-up' : 'bi bi-chevron-down'" class="me-1"></i>
                   {{ showOptions ? $t('staticAnalysis.options.hideOptions') : $t('staticAnalysis.options.showOptions') }}
                 </button>
               </div>
-              <div class="card-body" v-if="showOptions">
-                <div class="alert alert-primary mb-3">
-                  <i class="bi bi-info-circle-fill me-2"></i>
-                  <strong>{{ $t('staticAnalysis.form.tip') }}：</strong> {{ $t('staticAnalysis.options.optionsTip') }}
-                </div>
-                <div class="row">
+          
+          <div v-show="showOptions" class="options-panel">
+            <div class="row g-3">
                   <!-- 算法选择 -->
-                  <div class="col-md-6 mb-3">
-                    <label class="form-label fw-bold">{{ $t('staticAnalysis.options.algorithm') }}</label>
+              <div class="col-md-6">
+                <label class="form-label fw-bold small">{{ $t('staticAnalysis.options.algorithm') }}</label>
                     <select 
-                      class="form-select" 
+                  class="form-select form-select-sm" 
                       v-model="analysisOptions.algo"
                     >
                       <option value="vta">{{ $t('staticAnalysis.options.algorithms.vta') }}</option>
@@ -67,57 +67,70 @@
                       <option value="cha">{{ $t('staticAnalysis.options.algorithms.cha') }}</option>
                       <option value="static">{{ $t('staticAnalysis.options.algorithms.static') }}</option>
                     </select>
-                    <div class="form-text">{{ $t('staticAnalysis.options.algorithmTip') }}</div>
+                <div class="form-text small">{{ $t('staticAnalysis.options.algorithmTip') }}</div>
                   </div>
                                   
-                  <!-- 仅分析特定方法 -->
-                  <div class="col-md-12 mb-3">
-                    <label class="form-label fw-bold">{{ $t('staticAnalysis.options.ignoreMethod') }}</label>
+              <!-- 忽略方法 -->
+              <div class="col-md-6">
+                <label class="form-label fw-bold small">{{ $t('staticAnalysis.options.ignoreMethod') }}</label>
                     <input 
                       type="text" 
-                      class="form-control" 
+                  class="form-control form-control-sm" 
                       v-model="analysisOptions.ignoreMethod"
                       :placeholder="$t('staticAnalysis.options.ignoreMethodPlaceholder')"
                     >
-                    <div class="form-text">{{ $t('staticAnalysis.options.ignoreMethodTip') }}</div>
-                  </div>
-                </div>
+                <div class="form-text small">{{ $t('staticAnalysis.options.ignoreMethodTip') }}</div>
               </div>
-              <div class="card-body text-center" v-else>
-                <button class="btn btn-outline-primary" @click="showOptions = true">
-                  <i class="bi bi-sliders me-2"></i>{{ $t('staticAnalysis.options.showOptions') }}
-                </button>
-              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 提示信息 -->
+        <div class="alert alert-info border-0 bg-light-info mt-3">
+          <div class="d-flex align-items-start">
+            <i class="bi bi-info-circle-fill text-info me-2 mt-1"></i>
+            <div>
+              <strong>{{ $t('staticAnalysis.form.tip') }}</strong>
+              <p class="mb-0 small">{{ $t('staticAnalysis.form.pathTip') }}</p>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 任务监控部分 -->
-    <div class="card" v-if="taskId">
+    <!-- 任务监控卡片 -->
+    <div class="card shadow-sm" v-if="taskId">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">
-          <i class="bi bi-activity me-2"></i>{{ $t('staticAnalysis.monitor.title') }}
+        <h5 class="mb-0 d-flex align-items-center">
+          <i class="bi bi-activity me-2 text-primary"></i>{{ $t('staticAnalysis.monitor.title') }}
         </h5>
-        <div>
-          <span v-if="isConnected" class="badge bg-success me-2">
-            <i class="bi bi-wifi me-1"></i>{{ $t('staticAnalysis.monitor.connected') }}
-          </span>
-          <span v-else class="badge bg-danger me-2">
-            <i class="bi bi-wifi-off me-1"></i>{{ $t('staticAnalysis.monitor.disconnected') }}
+        <div class="d-flex align-items-center">
+          <span 
+            class="badge me-2"
+            :class="{
+              'bg-success': isConnected,
+              'bg-danger': !isConnected && !connecting,
+              'bg-warning': connecting
+            }"
+          >
+            <i :class="{
+              'bi bi-wifi': isConnected,
+              'bi bi-wifi-off': !isConnected && !connecting,
+              'bi bi-hourglass-split': connecting
+            }" class="me-1"></i>
+            {{ isConnected ? $t('staticAnalysis.monitor.connected') : 
+               connecting ? $t('staticAnalysis.monitor.connecting') : 
+               $t('staticAnalysis.monitor.disconnected') }}
           </span>
           <button 
-            v-if="!isConnected" 
+            v-if="!isConnected && !connecting" 
             class="btn btn-sm btn-outline-primary" 
             @click="connect"
-            :disabled="connecting"
           >
-            <span v-if="connecting" class="spinner-border spinner-border-sm me-1" role="status"></span>
-            {{ connecting ? $t('staticAnalysis.monitor.connecting') : $t('staticAnalysis.monitor.connectServer') }}
+            {{ $t('staticAnalysis.monitor.connectServer') }}
           </button>
           <button 
-            v-else 
+            v-else-if="isConnected" 
             class="btn btn-sm btn-outline-danger" 
             @click="disconnect"
           >
@@ -125,12 +138,14 @@
           </button>
         </div>
       </div>
+      
       <div class="card-body">
-        <div v-if="taskId && taskStatus">
-          <div class="d-flex justify-content-between align-items-center mb-3">
-            <h6 class="mb-0">{{ $t('staticAnalysis.monitor.taskId') }}: {{ taskId }}</h6>
+        <!-- 任务状态 -->
+        <div v-if="taskId && taskStatus" class="mb-4">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <small class="text-muted">{{ $t('staticAnalysis.monitor.taskId') }}: {{ taskId }}</small>
             <span 
-              class="badge" 
+              class="badge fs-6"
               :class="{
                 'bg-primary': taskStatus.status === 'processing',
                 'bg-success': taskStatus.status === 'completed',
@@ -142,59 +157,56 @@
             </span>
           </div>
           
-          <div class="progress mb-3">
+          <!-- 进度条 -->
+          <div class="progress mb-3" style="height: 8px;">
             <div 
-              class="progress-bar progress-bar-striped" 
-              :class="{'progress-bar-animated': taskStatus.status === 'processing'}"
+              class="progress-bar" 
+              :class="{
+                'progress-bar-striped progress-bar-animated': taskStatus.status === 'processing',
+                'bg-success': taskStatus.status === 'completed',
+                'bg-danger': taskStatus.status === 'failed'
+              }"
               role="progressbar" 
               :style="{width: taskStatus.progress + '%'}" 
               :aria-valuenow="taskStatus.progress" 
               aria-valuemin="0" 
               aria-valuemax="100"
             >
-              {{ Math.round(taskStatus.progress) }}%
             </div>
           </div>
           
-          <div class="card mb-3">
-            <div class="card-header d-flex justify-content-between align-items-center">
-              <h6 class="mb-0"><i class="bi bi-terminal me-2"></i>{{ $t('staticAnalysis.monitor.logs') }}</h6>
-              <span class="badge bg-info">{{ messages.length }} {{ $t('staticAnalysis.monitor.messages') }}</span>
-            </div>
-            <div class="message-container p-3">
-              <div v-for="(message, index) in messages" :key="index" class="message">
-                <div class="message-content p-2 rounded" :class="getMessageClass(message)">
-                  {{ formatMessage(message) }}
-                </div>
-              </div>
-              <div v-if="messages.length === 0" class="text-center text-muted py-4">
-                <i class="bi bi-chat-square-text me-2"></i>{{ $t('staticAnalysis.monitor.noMessages') }}
-              </div>
-            </div>
-          </div>
-          
-          <div v-if="taskStatus.status === 'completed'" class="alert alert-success">
+          <!-- 状态提示 -->
+          <div v-if="taskStatus.status === 'completed'" class="alert alert-success border-0">
             <i class="bi bi-check-circle-fill me-2"></i>{{ $t('staticAnalysis.monitor.completed') }}
             <button class="btn btn-sm btn-success ms-2" @click="$emit('refresh-db-files')">
-              {{ $t('staticAnalysis.monitor.refreshDb') }}
+              <i class="bi bi-arrow-clockwise me-1"></i>{{ $t('staticAnalysis.monitor.refreshDb') }}
             </button>
           </div>
           
-          <div v-if="taskStatus.status === 'failed'" class="alert alert-danger">
+          <div v-if="taskStatus.status === 'failed'" class="alert alert-danger border-0">
             <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ $t('staticAnalysis.monitor.failed') }}: {{ taskStatus.message }}
           </div>
         </div>
         
-        <div v-else-if="isConnected && !taskStatus" class="text-center py-4">
-          <i class="bi bi-hourglass-split text-primary display-4"></i>
-          <h5 class="mt-3">{{ $t('staticAnalysis.monitor.waitingTask') }}</h5>
-          <p class="text-muted">{{ $t('staticAnalysis.monitor.waitingTaskTip') }}</p>
+        <!-- 日志区域 -->
+        <div class="logs-section">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="mb-0 text-secondary">
+              <i class="bi bi-terminal me-2"></i>{{ $t('staticAnalysis.monitor.logs') }}
+            </h6>
+            <span class="badge bg-info">{{ messages.length }} {{ $t('staticAnalysis.monitor.messages') }}</span>
         </div>
         
-        <div v-else-if="!isConnected" class="text-center py-4">
-          <i class="bi bi-wifi-off text-secondary display-4"></i>
-          <h5 class="mt-3">{{ $t('staticAnalysis.monitor.notConnected') }}</h5>
-          <p class="text-muted">{{ $t('staticAnalysis.monitor.notConnectedTip') }}</p>
+          <div class="logs-container">
+            <div v-for="(message, index) in messages" :key="index" class="log-message">
+              <div class="message-content" :class="getMessageClass(message)">
+                {{ formatMessage(message) }}
+              </div>
+            </div>
+            <div v-if="messages.length === 0" class="text-center text-muted py-4">
+              <i class="bi bi-chat-square-text me-2"></i>{{ $t('staticAnalysis.monitor.noMessages') }}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -627,55 +639,237 @@ export default {
 </script>
 
 <style scoped>
-.analysis-options-card {
-  border: 2px solid #007bff;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  margin-bottom: 1.5rem;
+.static-analysis-with-monitor {
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
-.analysis-options-card .card-header {
-  background-color: #007bff;
-  color: white;
-  font-weight: bold;
+/* 渐变背景 */
+.bg-gradient-primary {
+  background: linear-gradient(135deg, #4785ff 0%, #2684ff 100%);
 }
 
-.analysis-options-card .form-label {
-  color: #333;
+.bg-light-info {
+  background-color: rgba(13, 202, 240, 0.1);
 }
 
-.analysis-options-card .form-text {
-  color: #6c757d;
-  font-size: 0.85rem;
+/* 卡片阴影 */
+.card.shadow-sm {
+  box-shadow: 0 0.125rem 0.5rem rgba(0, 0, 0, 0.08);
+  border: none;
+  border-radius: 10px;
+  overflow: hidden;
 }
 
-.message-container {
-  border: 1px solid #dee2e6;
-  max-height: 400px;
-  overflow-y: auto;
+/* 输入组样式 */
+.form-control-lg {
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  border-radius: 0.5rem;
+}
+
+.input-group-text {
+  border: none;
   background-color: #f8f9fa;
 }
 
+/* 按钮样式 */
+.btn-primary {
+  background: linear-gradient(135deg, #4785ff 0%, #2684ff 100%);
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #3674e8 0%, #1a73e8 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(70, 133, 255, 0.3);
+}
+
+.btn-outline-primary {
+  border-color: #4785ff;
+  color: #4785ff;
+  border-radius: 0.5rem;
+  transition: all 0.3s ease;
+}
+
+.btn-outline-primary:hover {
+  background-color: #4785ff;
+  border-color: #4785ff;
+  transform: translateY(-1px);
+}
+
+/* 选项面板 */
+.options-panel {
+  background: #f8f9fa;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  border: 1px solid #e9ecef;
+}
+
+.form-select-sm {
+  border-radius: 0.375rem;
+  border: 1px solid #ced4da;
+}
+
+.form-control-sm {
+  border-radius: 0.375rem;
+  border: 1px solid #ced4da;
+}
+
+/* 徽章样式 */
+.badge {
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-weight: 500;
+}
+
+.badge.fs-6 {
+  font-size: 0.875rem !important;
+}
+
+/* 进度条 */
+.progress {
+  border-radius: 0.5rem;
+  background-color: #e9ecef;
+}
+
+.progress-bar {
+  border-radius: 0.5rem;
+  transition: width 0.6s ease;
+}
+
+/* 日志区域 */
+.logs-container {
+  max-height: 300px;
+  overflow-y: auto;
+  background: #f8f9fa;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  border: 1px solid #e9ecef;
+}
+
+.log-message {
+  margin-bottom: 0.5rem;
+}
+
 .message-content {
-  border-left: 3px solid #6c757d;
-  margin-bottom: 8px;
-  padding: 8px 12px;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  background: white;
+  border: 1px solid #e9ecef;
+  word-wrap: break-word;
 }
 
-.message-content.bg-danger {
-  border-left-color: #dc3545;
+.message-content.error {
+  background-color: #f8d7da;
+  border-color: #f5c6cb;
+  color: #721c24;
 }
 
-.message-content.bg-success {
-  border-left-color: #28a745;
+.message-content.success {
+  background-color: #d4edda;
+  border-color: #c3e6cb;
+  color: #155724;
 }
 
-.message-content.bg-primary {
-  border-left-color: #007bff;
+.message-content.warning {
+  background-color: #fff3cd;
+  border-color: #ffeaa7;
+  color: #856404;
 }
 
-.message-content.bg-white {
-  border-left-color: #6c757d;
-  background-color: #ffffff;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+.message-content.info {
+  background-color: #d1ecf1;
+  border-color: #bee5eb;
+  color: #0c5460;
+}
+
+/* 滚动条样式 */
+.logs-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.logs-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.logs-container::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.logs-container::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* 警告框样式 */
+.alert {
+  border-radius: 0.5rem;
+  border: none;
+  padding: 1rem;
+}
+
+.alert-success {
+  background-color: rgba(25, 135, 84, 0.1);
+  color: #198754;
+}
+
+.alert-danger {
+  background-color: rgba(220, 53, 69, 0.1);
+  color: #dc3545;
+}
+
+.alert-info {
+  background-color: rgba(13, 202, 240, 0.1);
+  color: #0dcaf0;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .static-analysis-with-monitor {
+    padding: 0 1rem;
+  }
+  
+  .card-body {
+    padding: 1rem;
+  }
+  
+  .btn-primary {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+  }
+  
+  .form-control-lg {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+  }
+}
+
+/* 动画效果 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.log-message {
+  animation: fadeIn 0.2s ease-out;
 }
 </style> 

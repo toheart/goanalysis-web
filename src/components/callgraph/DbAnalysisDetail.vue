@@ -77,121 +77,7 @@
       </div>
       
       <!-- 函数上下游分析 -->
-      <FunctionUpstreamAnalysis :dbFilePath="dbFilePath" />
-      
-      <!-- 包依赖关系 -->
-      <div class="card mb-4" v-if="packageDependencies && packageDependencies.length > 0">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>包依赖关系</h5>
-          <div>
-            <span v-if="packageDepsLoading" class="spinner-border spinner-border-sm me-2" role="status"></span>
-            <span class="me-2">共 {{ packageDepsTotal }} 条</span>
-            <button class="btn btn-sm btn-outline-primary" @click="showMoreDeps = !showMoreDeps">
-              {{ showMoreDeps ? '显示前20条' : '显示全部' }}
-            </button>
-          </div>
-        </div>
-        <div class="card-body">
-          <div class="table-responsive">
-            <table class="table table-hover">
-              <thead>
-                <tr>
-                  <th>源包</th>
-                  <th>目标包</th>
-                  <th class="text-center">调用次数</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(dep, index) in displayedDeps" :key="index">
-                  <td><code>{{ dep.source }}</code></td>
-                  <td><code>{{ dep.target }}</code></td>
-                  <td class="text-center">
-                    <span class="badge bg-primary">{{ dep.count }}</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          
-          <!-- 分页控件 -->
-          <div class="d-flex justify-content-center mt-3" v-if="packageDepsPageCount > 1">
-            <nav aria-label="包依赖关系分页">
-              <ul class="pagination">
-                <li class="page-item" :class="{ disabled: packageDepsPage === 1 }">
-                  <a class="page-link" href="#" @click.prevent="changePackageDepsPage(packageDepsPage - 1)">
-                    <i class="bi bi-chevron-left"></i>
-                  </a>
-                </li>
-                <li class="page-item" v-for="page in packageDepsPageCount" :key="page" 
-                    :class="{ active: page === packageDepsPage }">
-                  <a class="page-link" href="#" @click.prevent="changePackageDepsPage(page)">{{ page }}</a>
-                </li>
-                <li class="page-item" :class="{ disabled: packageDepsPage === packageDepsPageCount }">
-                  <a class="page-link" href="#" @click.prevent="changePackageDepsPage(packageDepsPage + 1)">
-                    <i class="bi bi-chevron-right"></i>
-                  </a>
-                </li>
-              </ul>
-            </nav>
-          </div>
-        </div>
-      </div>
-      
-      <!-- 热点函数 -->
-      <div class="card mb-4" v-if="hotFunctions && hotFunctions.length > 0">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0"><i class="bi bi-fire me-2"></i>热点函数</h5>
-          <div>
-            <span v-if="hotFunctionsLoading" class="spinner-border spinner-border-sm me-2" role="status"></span>
-            <span class="me-2">共 {{ hotFunctionsTotal }} 条</span>
-            <button class="btn btn-sm btn-outline-primary" @click="showMoreFuncs = !showMoreFuncs">
-              {{ showMoreFuncs ? '显示前20条' : '显示全部' }}
-            </button>
-          </div>
-        </div>
-        <div class="card-body">
-          <div class="table-responsive">
-            <table class="table table-hover">
-              <thead>
-                <tr>
-                  <th>函数名</th>
-                  <th class="text-center">被调用次数</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(func, index) in displayedFuncs" :key="index">
-                  <td><code>{{ func.name }}</code></td>
-                  <td class="text-center">
-                    <span class="badge bg-danger">{{ func.callCount }}</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          
-          <!-- 分页控件 -->
-          <div class="d-flex justify-content-center mt-3" v-if="hotFunctionsPageCount > 1">
-            <nav aria-label="热点函数分页">
-              <ul class="pagination">
-                <li class="page-item" :class="{ disabled: hotFunctionsPage === 1 }">
-                  <a class="page-link" href="#" @click.prevent="changeHotFunctionsPage(hotFunctionsPage - 1)">
-                    <i class="bi bi-chevron-left"></i>
-                  </a>
-                </li>
-                <li class="page-item" v-for="page in hotFunctionsPageCount" :key="page" 
-                    :class="{ active: page === hotFunctionsPage }">
-                  <a class="page-link" href="#" @click.prevent="changeHotFunctionsPage(page)">{{ page }}</a>
-                </li>
-                <li class="page-item" :class="{ disabled: hotFunctionsPage === hotFunctionsPageCount }">
-                  <a class="page-link" href="#" @click.prevent="changeHotFunctionsPage(hotFunctionsPage + 1)">
-                    <i class="bi bi-chevron-right"></i>
-                  </a>
-                </li>
-              </ul>
-            </nav>
-          </div>
-        </div>
-      </div>
+      <FunctionAnalysis :dbFilePath="dbFilePath" />
     </div>
     
     <div v-else class="card mb-4">
@@ -209,12 +95,12 @@
 
 <script>
 import axios from '../../axios'
-import FunctionUpstreamAnalysis from './FunctionUpstreamAnalysis.vue'
+import FunctionAnalysis from './FunctionAnalysis.vue'
 
 export default {
   name: 'DbAnalysisDetail',
   components: {
-    FunctionUpstreamAnalysis
+    FunctionAnalysis
   },
   props: {
     dbFilePath: {
@@ -237,33 +123,7 @@ export default {
   data() {
     return {
       analysisResult: null,
-      loading: true,
-      packageDependencies: [],
-      hotFunctions: [],
-      packageDepsLoading: false,
-      hotFunctionsLoading: false,
-      packageDepsPage: 1,
-      hotFunctionsPage: 1,
-      packageDepsPageSize: 20,
-      hotFunctionsPageSize: 20,
-      packageDepsTotal: 0,
-      hotFunctionsTotal: 0,
-      showMoreDeps: false,
-      showMoreFuncs: false
-    }
-  },
-  computed: {
-    displayedDeps() {
-      return this.packageDependencies;
-    },
-    displayedFuncs() {
-      return this.hotFunctions;
-    },
-    packageDepsPageCount() {
-      return Math.ceil(this.packageDepsTotal / this.packageDepsPageSize);
-    },
-    hotFunctionsPageCount() {
-      return Math.ceil(this.hotFunctionsTotal / this.hotFunctionsPageSize);
+      loading: true
     }
   },
   mounted() {
@@ -290,63 +150,11 @@ export default {
         }
         
         this.analysisResult = response.data;
-        
-        // 加载包依赖关系和热点函数
-        this.loadPackageDependencies();
-        this.loadHotFunctions();
       } catch (error) {
         console.error('分析数据库失败:', error);
       } finally {
         this.loading = false;
       }
-    },
-    
-    async loadPackageDependencies() {
-      this.packageDepsLoading = true;
-      try {
-        const decodedPath = decodeURIComponent(this.dbFilePath);
-        const response = await axios.post('/api/static/package-dependencies', {
-          dbPath: decodedPath,
-          page: this.packageDepsPage,
-          pageSize: this.packageDepsPageSize
-        });
-        
-        this.packageDependencies = response.data.dependencies || [];
-        this.packageDepsTotal = response.data.total || 0;
-      } catch (error) {
-        console.error('获取包依赖关系失败:', error);
-      } finally {
-        this.packageDepsLoading = false;
-      }
-    },
-    
-    async loadHotFunctions() {
-      this.hotFunctionsLoading = true;
-      try {
-        const decodedPath = decodeURIComponent(this.dbFilePath);
-        const response = await axios.post('/api/static/hot-functions', {
-          dbPath: decodedPath,
-          page: this.hotFunctionsPage,
-          pageSize: this.hotFunctionsPageSize
-        });
-        
-        this.hotFunctions = response.data.functions || [];
-        this.hotFunctionsTotal = response.data.total || 0;
-      } catch (error) {
-        console.error('获取热点函数失败:', error);
-      } finally {
-        this.hotFunctionsLoading = false;
-      }
-    },
-    
-    changePackageDepsPage(page) {
-      this.packageDepsPage = page;
-      this.loadPackageDependencies();
-    },
-    
-    changeHotFunctionsPage(page) {
-      this.hotFunctionsPage = page;
-      this.loadHotFunctions();
     },
 
     formatDate(timestamp) {
@@ -359,7 +167,7 @@ export default {
       return Math.round(bytes / Math.pow(1024, i), 2) + ' ' + sizes[i];
     },
     goBack() {
-      this.$router.push('/static-analysis');
+      this.$emit('back');
     }
   }
 }

@@ -1,0 +1,104 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# 前端架构指南
+
+## 技术栈
+
+GoAnalysis前端使用Vue3 + Composition API构建，提供代码分析结果的可视化界面。
+
+## 项目结构 (goanalysis-web/)
+
+### 核心配置
+- [package.json](mdc:goanalysis/goanalysis-web/package.json) - 依赖管理和脚本配置
+- [vue.config.js](mdc:goanalysis/goanalysis-web/vue.config.js) - Vue CLI配置
+- [jsconfig.json](mdc:goanalysis/goanalysis-web/jsconfig.json) - JavaScript配置
+
+### 入口文件
+- [src/main.js](mdc:goanalysis/goanalysis-web/src/main.js) - 应用入口，Vue应用初始化
+- [src/App.vue](mdc:goanalysis/goanalysis-web/src/App.vue) - 根组件
+- [public/index.html](mdc:goanalysis/goanalysis-web/public/index.html) - HTML模板
+
+## 核心模块
+
+### 路由管理 ([src/router/](mdc:goanalysis/goanalysis-web/src/router))
+- [index.js](mdc:goanalysis/goanalysis-web/src/router/index.js) - 路由配置，定义页面导航
+
+### API通信 
+- [src/axios.js](mdc:goanalysis/goanalysis-web/src/axios.js) - HTTP客户端配置
+- [src/config/api.js](mdc:goanalysis/goanalysis-web/src/config/api.js) - API端点配置
+
+### 国际化 ([src/i18n/](mdc:goanalysis/goanalysis-web/src/i18n))
+- [index.js](mdc:goanalysis/goanalysis-web/src/i18n/index.js) - 多语言支持配置
+
+## 功能组件
+
+### 调用图分析 ([src/components/callgraph/](mdc:goanalysis/goanalysis-web/src/components/callgraph))
+
+- [StaticAnalysis.vue](mdc:goanalysis/goanalysis-web/src/components/callgraph/StaticAnalysis.vue) - 静态分析主界面
+- [StaticAnalysisWithMonitor.vue](mdc:goanalysis/goanalysis-web/src/components/callgraph/StaticAnalysisWithMonitor.vue) - 带监控的静态分析
+- [DbAnalysisDetail.vue](mdc:goanalysis/goanalysis-web/src/components/callgraph/DbAnalysisDetail.vue) - 数据库分析详情
+- [FunctionUpstreamAnalysis.vue](mdc:goanalysis/goanalysis-web/src/components/callgraph/FunctionUpstreamAnalysis.vue) - 函数上游分析
+
+### 运行时分析 ([src/components/runtime/](mdc:goanalysis/goanalysis-web/src/components/runtime))
+
+#### 核心组件
+- [RuntimeAnalysis.vue](mdc:goanalysis/goanalysis-web/src/components/runtime/components/RuntimeAnalysis.vue) - 运行时分析主界面
+- [FunctionAnalysis.vue](mdc:goanalysis/goanalysis-web/src/components/runtime/components/FunctionAnalysis.vue) - 函数分析组件
+- [FunctionSearch.vue](mdc:goanalysis/goanalysis-web/src/components/runtime/components/FunctionSearch.vue) - 函数搜索
+- [CallChainAnalysis.vue](mdc:goanalysis/goanalysis-web/src/components/runtime/components/CallChainAnalysis.vue) - 调用链分析
+- [TraceViewer.vue](mdc:goanalysis/goanalysis-web/src/components/runtime/components/TraceViewer.vue) - 追踪查看器
+- [TraceDetails.vue](mdc:goanalysis/goanalysis-web/src/components/runtime/components/TraceDetails.vue) - 追踪详情
+- [GidCallGraph.vue](mdc:goanalysis/goanalysis-web/src/components/runtime/components/GidCallGraph.vue) - GID调用图
+- [TreeNode.vue](mdc:goanalysis/goanalysis-web/src/components/runtime/components/TreeNode.vue) - 树节点组件
+
+#### Composables ([src/components/runtime/composables/](mdc:goanalysis/goanalysis-web/src/components/runtime/composables))
+- [useRuntimeApi.js](mdc:goanalysis/goanalysis-web/src/components/runtime/composables/useRuntimeApi.js) - 运行时API钩子
+- [useFunctionAnalysis.js](mdc:goanalysis/goanalysis-web/src/components/runtime/composables/useFunctionAnalysis.js) - 函数分析钩子
+- [useFunctionSearch.js](mdc:goanalysis/goanalysis-web/src/components/runtime/composables/useFunctionSearch.js) - 函数搜索钩子
+- [useCallChainAnalysis.js](mdc:goanalysis/goanalysis-web/src/components/runtime/composables/useCallChainAnalysis.js) - 调用链分析钩子
+
+#### 工具函数 ([src/components/runtime/utils/](mdc:goanalysis/goanalysis-web/src/components/runtime/utils))
+- [chartUtils.js](mdc:goanalysis/goanalysis-web/src/components/runtime/utils/chartUtils.js) - 图表工具函数
+
+### 通用组件
+- [src/components/Welcome.vue](mdc:goanalysis/goanalysis-web/src/components/Welcome.vue) - 欢迎页面
+- [src/components/Language.vue](mdc:goanalysis/goanalysis-web/src/components/Language.vue) - 语言切换组件
+
+## 样式资源
+
+- [src/assets/styles.css](mdc:goanalysis/goanalysis-web/src/assets/styles.css) - 全局样式
+- [src/assets/logo.png](mdc:goanalysis/goanalysis-web/src/assets/logo.png) - 项目logo
+
+## 开发规范
+
+### 组件设计
+1. **Composition API优先** - 使用Vue3的Composition API编写组件
+2. **单一职责** - 每个组件专注于单一功能
+3. **可复用性** - 通用逻辑抽取到composables中
+
+### 状态管理
+- 使用Vue3的响应式API进行状态管理
+- 复杂状态通过composables封装
+
+### API集成
+- 统一使用axios进行HTTP请求
+- API调用封装在专门的composables中
+- 错误处理和加载状态统一管理
+
+### 样式规范
+- 使用CSS变量进行主题管理
+- 组件样式采用scoped CSS
+- 响应式设计适配不同屏幕尺寸
+
+## 与后端交互
+
+前端通过HTTP API与后端通信：
+- 静态分析 - 调用staticanalysis服务
+- 文件管理 - 调用filemanager服务  
+- 运行时分析 - 调用analysis服务
+
+API配置在 [src/config/api.js](mdc:goanalysis/goanalysis-web/src/config/api.js) 中统一管理。
+
