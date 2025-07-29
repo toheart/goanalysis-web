@@ -125,165 +125,60 @@
                 </div>
               </div>
             
-              <!-- 函数调用分析部分 -->
+              <!-- 函数在Goroutine中的分布 -->
               <div class="card mb-4">
                 <div class="card-header">
-                  <ul class="nav nav-tabs card-header-tabs">
-                    <li class="nav-item">
-                      <a class="nav-link" :class="{ active: activeTab === 'callers' }" href="#" @click.prevent="activeTab = 'callers'">
-                        <i class="bi bi-arrow-down-circle me-1"></i>调用者
-                      </a>
-                    </li>
-                    <li class="nav-item">
-                      <a class="nav-link" :class="{ active: activeTab === 'callees' }" href="#" @click.prevent="activeTab = 'callees'">
-                        <i class="bi bi-arrow-up-circle me-1"></i>被调用者
-                      </a>
-                    </li>
-                    <li class="nav-item">
-                      <a class="nav-link" :class="{ active: activeTab === 'tree' }" href="#" @click.prevent="activeTab = 'tree'">
-                        <i class="bi bi-diagram-3 me-1"></i>调用树
-                      </a>
-                    </li>
-
-                  </ul>
+                  <h5 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>函数在Goroutine中的分布</h5>
                 </div>
                 <div class="card-body">
-                  <!-- 加载状态 -->
                   <div v-if="loading" class="text-center py-3">
                     <div class="spinner-border text-primary" role="status">
                       <span class="visually-hidden">{{ t('common.loading') }}</span>
                     </div>
                   </div>
                   
-                  <!-- 调用者表格 -->
-                  <div v-else-if="activeTab === 'callers'" class="table-responsive">
-                    <p class="text-muted mb-2">{{ $t('runtimeAnalysis.functionAnalysis.callersList', { name: selectedFunction.name }) }}：</p>
-                    <table class="table table-hover" v-if="functionData.callers && functionData.callers.length">
+                  <div v-else-if="goroutineData.length > 0" class="table-responsive">
+                    <p class="text-muted mb-2">函数 <strong>{{ selectedFunction.name }}</strong> 在以下 {{ goroutineData.length }} 个Goroutine中存在：</p>
+                    <table class="table table-hover">
                       <thead>
                         <tr>
                           <th scope="col">#</th>
-                          <th scope="col">{{ $t('runtimeAnalysis.functionAnalysis.functionName') }}</th>
-                          <th scope="col">{{ $t('runtimeAnalysis.functionAnalysis.packagePath') }}</th>
-                          <th scope="col">{{ $t('runtimeAnalysis.functionAnalysis.callCount') }}</th>
-                          <th scope="col">{{ $t('runtimeAnalysis.functionAnalysis.avgTime') }}</th>
-                          <th scope="col">{{ $t('runtimeAnalysis.functionAnalysis.operations') }}</th>
+                          <th scope="col">Goroutine ID</th>
+                          <th scope="col">初始函数</th>
+                          <th scope="col">调用深度</th>
+                          <th scope="col">执行时间</th>
+                          <th scope="col">状态</th>
+                          <th scope="col">操作</th>
                         </tr>
                       </thead>
                       <tbody>
-                        <tr v-for="(caller, index) in functionData.callers" :key="caller.id || caller.name">
+                        <tr v-for="(goroutine, index) in goroutineData" :key="goroutine.gid">
                           <td>{{ index + 1 }}</td>
-                          <td>{{ caller.name }}</td>
-                          <td><span class="badge bg-light text-dark">{{ caller.package || $t('runtimeAnalysis.functionAnalysis.none') }}</span></td>
-                          <td><span class="badge bg-primary">{{ caller.callCount || 0 }}</span></td>
-                          <td><span class="badge bg-info">{{ formatTime(caller.avgTime) }} ms</span></td>
+                          <td><span class="badge bg-primary">{{ goroutine.gid }}</span></td>
+                          <td><code>{{ goroutine.initialFunc }}</code></td>
+                          <td><span class="badge bg-info">{{ goroutine.depth || '-' }}</span></td>
+                          <td><span class="badge bg-secondary">{{ goroutine.executionTime || '-' }}</span></td>
                           <td>
-                            <button class="btn btn-sm btn-outline-primary" @click="selectItem(caller)">
-                              <i class="bi bi-box-arrow-in-right me-1"></i>{{ $t('runtimeAnalysis.functionAnalysis.analyze') }}
-                            </button>
+                            <span v-if="goroutine.isFinished" class="badge bg-success">已完成</span>
+                            <span v-else class="badge bg-warning">运行中</span>
+                          </td>
+                          <td>
+                                        <button 
+              class="btn btn-sm btn-outline-primary"
+              title="查看详细调用链"
+              @click="handleViewCallChain(goroutine.gid, selectedFunction.name)"
+            >
+              <i class="bi bi-eye me-1"></i>查看调用链
+            </button>
                           </td>
                         </tr>
                       </tbody>
                     </table>
-                    <div v-else class="alert alert-info">
-                      <i class="bi bi-info-circle me-2"></i>{{ $t('runtimeAnalysis.functionAnalysis.noCallers') }}
-                    </div>
                   </div>
                   
-                  <!-- 被调用者表格 -->
-                  <div v-else-if="activeTab === 'callees'" class="table-responsive">
-                    <p class="text-muted mb-2">{{ $t('runtimeAnalysis.functionAnalysis.calleesList', { name: selectedFunction.name }) }}：</p>
-                    <table class="table table-hover" v-if="functionData.callees && functionData.callees.length">
-                      <thead>
-                        <tr>
-                          <th scope="col">#</th>
-                          <th scope="col">{{ $t('runtimeAnalysis.functionAnalysis.functionName') }}</th>
-                          <th scope="col">{{ $t('runtimeAnalysis.functionAnalysis.packagePath') }}</th>
-                          <th scope="col">{{ $t('runtimeAnalysis.functionAnalysis.callCount') }}</th>
-                          <th scope="col">{{ $t('runtimeAnalysis.functionAnalysis.avgTime') }}</th>
-                          <th scope="col">{{ $t('runtimeAnalysis.functionAnalysis.operations') }}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr v-for="(callee, index) in functionData.callees" :key="callee.id || callee.name">
-                          <td>{{ index + 1 }}</td>
-                          <td>{{ callee.name }}</td>
-                          <td><span class="badge bg-light text-dark">{{ callee.package || $t('runtimeAnalysis.functionAnalysis.none') }}</span></td>
-                          <td><span class="badge bg-success">{{ callee.callCount || 0 }}</span></td>
-                          <td><span class="badge bg-info">{{ formatTime(callee.avgTime) }} ms</span></td>
-                          <td>
-                            <button class="btn btn-sm btn-outline-primary" @click="selectItem(callee)">
-                              <i class="bi bi-box-arrow-in-right me-1"></i>{{ $t('runtimeAnalysis.functionAnalysis.analyze') }}
-                            </button>
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                    <div v-else class="alert alert-info">
-                      <i class="bi bi-info-circle me-2"></i>{{ $t('runtimeAnalysis.functionAnalysis.noCallees') }}
-                    </div>
+                  <div v-else class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>该函数未在任何Goroutine中找到
                   </div>
-                  
-                  <!-- 树状图展示 -->
-                  <div v-else-if="activeTab === 'tree'" class="tree-view">
-                    <div class="mb-3">
-                      <div class="d-flex align-items-center mb-2">
-                        <div class="me-3">
-                          <label class="form-label">链类型：</label>
-                          <select v-model="chainType" class="form-select form-select-sm" @change="loadTreeGraph">
-                            <option value="upstream">上游调用链</option>
-                            <option value="downstream">下游调用链</option>
-                            <option value="full">完整调用链</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label class="form-label">深度：</label>
-                          <select v-model="treeDepth" class="form-select form-select-sm" @change="loadTreeGraph">
-                            <option value="1">1</option>
-                            <option value="2">2</option>
-                            <option value="3">3</option>
-                            <option value="4">4</option>
-                            <option value="5">5</option>
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div v-if="loadingTree" class="py-5 text-center">
-                      <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">加载中...</span>
-                      </div>
-                      <div class="mt-2">加载调用树数据...</div>
-                    </div>
-                    
-                    <div v-else-if="treeData.length === 0" class="alert alert-info">
-                      <i class="bi bi-info-circle me-2"></i>没有可用的调用树数据
-                    </div>
-                    
-                    <div v-else class="tree-container">
-                      <div class="card">
-                        <div class="card-body">
-                          <div class="tree-node" v-for="(tree, index) in treeData" :key="index">
-                            <div class="tree-root">
-                              <i class="bi bi-diagram-3 me-2"></i>
-                              <strong>{{ tree.name }}</strong>
-                            </div>
-                            <div class="tree-children ps-4 mt-2">
-                              <template v-if="tree.children && tree.children.length">
-                                <div v-for="(child, childIndex) in tree.children" :key="childIndex">
-                                  <tree-node :node="child" @select-function="handleTreeNodeClick" />
-                                </div>
-                              </template>
-                              <div v-else class="text-muted">
-                                <i class="bi bi-info-circle me-2"></i>没有子节点
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-
                 </div>
               </div>
             </div>
@@ -310,25 +205,24 @@
 </template>
 
 <script>
-import { ref, onMounted, onUnmounted, computed, nextTick, watch, defineAsyncComponent } from 'vue';
+import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import axios from '../../../axios';
 import debounce from 'lodash/debounce';
-
-// 使用defineAsyncComponent异步加载组件
-const TreeNode = defineAsyncComponent(() => import('./TreeNode.vue'));
+import { useRouter } from 'vue-router';
 
 export default {
   name: 'FunctionAnalysis',
   
-  components: {
-    TreeNode // 注册TreeNode组件
-  },
-  
   setup() {
     const { t } = useI18n();
+    const router = useRouter();
     // 初始化项目路径
     const currentDbPath = ref(localStorage.getItem('verifiedProjectPath') || '');
+    
+    // 调试信息
+    console.log('FunctionAnalysis组件初始化，数据库路径:', currentDbPath.value);
+    
     const searchQuery = ref('');
     const showDropdown = ref(false);
     const activeIndex = ref(-1);
@@ -336,11 +230,7 @@ export default {
     const loading = ref(false);
     const searchInput = ref(null);
     const selectedFunction = ref(null);
-    const activeTab = ref('callers');
-    const functionData = ref({
-      callers: [],
-      callees: []
-    });
+    const goroutineData = ref([]);
     const functionStats = ref({
       callCount: 0,
       avgTime: 0,
@@ -348,12 +238,6 @@ export default {
       successRate: 0,
       successCount: 0
     });
-    
-    // 树状图相关
-    const chainType = ref('full');
-    const treeDepth = ref('3');
-    const treeData = ref([]);
-    const loadingTree = ref(false);
 
     // 过滤后的项目
     const filteredItems = computed(() => {
@@ -462,129 +346,160 @@ export default {
     // 选择项目
     const selectItem = (item) => {
       searchQuery.value = item.name;
-      selectedFunction.value = item;
+      selectedFunction.value = {
+        id: item.id, // 添加函数ID
+        name: item.name,
+        package: item.package
+      };
       hideDropdown();
       // 在这里调用函数分析相关API获取更多数据
       analyzeFunctionDetails(item.name);
     };
 
-    // 分析函数详情
-    const analyzeFunctionDetails = async (functionName) => {
-      if (!currentDbPath.value || !functionName) return;
-      
-      loading.value = true;
-      try {
-        // 初始化函数数据结构
-        functionData.value = {
-          callers: [],
-          callees: []
-        };
-        
-        // 获取被调用者（子函数）
+    // 处理查看调用链
+    const handleViewCallChain = async (gid, functionName) => {
+      if (!currentDbPath.value || !gid || !functionName) {
+        console.error('缺少必要参数:', { currentDbPath: currentDbPath.value, gid, functionName });
+        return;
+      }
+
+      // 如果没有函数ID，先获取
+      if (!selectedFunction.value.id) {
         try {
-          // 优先使用专门的子函数接口
-          const childFunctionsResponse = await axios.post('/api/runtime/functions/children', {
+          const searchResponse = await axios.post('/api/runtime/functions/search', {
             dbpath: currentDbPath.value,
-            parentId: functionName // 使用函数名作为父ID参数
+            query: functionName,
+            limit: 1
           });
           
-          if (childFunctionsResponse.data && childFunctionsResponse.data.functions) {
-            functionData.value.callees = childFunctionsResponse.data.functions
-              .sort((a, b) => (b.callCount || 0) - (a.callCount || 0));
+          if (searchResponse.data && searchResponse.data.functions && searchResponse.data.functions.length > 0) {
+            selectedFunction.value.id = searchResponse.data.functions[0].id;
           } else {
-            // 如果专门的接口没有返回数据，回退到函数分析数据
-            const functionAnalysisResponse = await axios.post('/api/runtime/function/analysis', {
-              dbpath: currentDbPath.value,
-              functionName: functionName,
-              type: 'full' // 获取完整的调用关系
-            });
-            
-            if (functionAnalysisResponse.data && functionAnalysisResponse.data.callData) {
-              // 提取被调用函数（子函数）
-              const calleesData = [];
-              const processNode = (node) => {
-                if (node.children && node.children.length > 0) {
-                  node.children.forEach(child => {
-                    calleesData.push({
-                      name: child.name,
-                      package: child.package || '',
-                      callCount: child.callCount || 0,
-                      avgTime: child.avgTime || '0'
-                    });
-                    processNode(child);
-                  });
-                }
-              };
-              
-              // 处理根节点及其子节点
-              const rootNodes = functionAnalysisResponse.data.callData;
-              rootNodes.forEach(node => processNode(node));
-              
-              // 去重并排序
-              const uniqueCallees = Array.from(
-                new Map(calleesData.map(item => [item.name, item])).values()
-              ).sort((a, b) => b.callCount - a.callCount);
-              
-              functionData.value.callees = uniqueCallees;
-            }
+            console.error('未找到函数ID');
+            return;
           }
         } catch (error) {
-          console.error('获取函数被调用者数据失败:', error);
+          console.error('获取函数ID失败:', error);
+          return;
+        }
+      }
+
+      try {
+        // 获取函数在指定Goroutine中的信息
+        const response = await axios.post('/api/runtime/function/info', {
+          dbpath: currentDbPath.value,
+          gid: gid,
+          functionId: selectedFunction.value.id,
+          currentDepth: 3 // 默认深度
+        });
+
+        if (response.data && response.data.functionInfo) {
+          const functionInfo = response.data.functionInfo;
           
-          // 发生错误时回退到函数分析数据
-          try {
-            const functionAnalysisResponse = await axios.post('/api/runtime/function/analysis', {
-              dbpath: currentDbPath.value,
-              functionName: functionName,
-              type: 'full'
+          console.log('函数信息:', functionInfo);
+          
+          // 如果函数在当前深度范围内找到，直接高亮
+          if (functionInfo.found) {
+            console.log('✅ 函数在当前深度范围内，使用原始ID高亮:', selectedFunction.value.id);
+            // 使用原始函数ID进行路由跳转
+            const route = router.resolve({
+              name: 'TraceDetails',
+              params: { gid: gid },
+              query: { highlight: selectedFunction.value.id }
             });
-            
-            if (functionAnalysisResponse.data && functionAnalysisResponse.data.callData) {
-              // 提取被调用函数（子函数）
-              const calleesData = [];
-              const processNode = (node) => {
-                if (node.children && node.children.length > 0) {
-                  node.children.forEach(child => {
-                    calleesData.push({
-                      name: child.name,
-                      package: child.package || '',
-                      callCount: child.callCount || 0,
-                      avgTime: child.avgTime || '0'
-                    });
-                    processNode(child);
-                  });
-                }
-              };
-              
-              // 处理根节点及其子节点
-              const rootNodes = functionAnalysisResponse.data.callData;
-              rootNodes.forEach(node => processNode(node));
-              
-              // 去重并排序
-              const uniqueCallees = Array.from(
-                new Map(calleesData.map(item => [item.name, item])).values()
-              ).sort((a, b) => b.callCount - a.callCount);
-              
-              functionData.value.callees = uniqueCallees;
+            router.push(route);
+          } else {
+            // 如果函数不在当前深度范围内，高亮父函数
+            if (functionInfo.parentIds && functionInfo.parentIds.length > 0) {
+              // 使用第一个父函数ID作为高亮目标
+              const parentId = functionInfo.parentIds[0];
+              console.log('🔄 函数超出深度范围，使用父函数ID高亮:', parentId);
+              // 更新路由查询参数
+              const route = router.resolve({
+                name: 'TraceDetails',
+                params: { gid: gid },
+                query: { highlight: parentId }
+              });
+              router.push(route);
+            } else {
+              console.log('⚠️ 函数超出深度范围，但没有可用的父函数ID');
+              // 没有父函数ID，直接跳转不高亮
+              const route = router.resolve({
+                name: 'TraceDetails',
+                params: { gid: gid }
+              });
+              router.push(route);
             }
-          } catch (innerError) {
-            console.error('回退方法获取被调用者数据也失败:', innerError);
           }
         }
+      } catch (error) {
+        console.error('获取函数信息失败:', error);
+        // 如果获取失败，仍然跳转但不带高亮参数
+        const route = router.resolve({
+          name: 'TraceDetails',
+          params: { gid: gid }
+        });
+        router.push(route);
+      }
+    };
+
+    // 分析函数详情
+    const analyzeFunctionDetails = async (functionName) => {
+      if (!currentDbPath.value || !functionName) {
+        console.log('缺少必要参数:', { currentDbPath: currentDbPath.value, functionName });
+        return;
+      }
+      
+      console.log('开始分析函数:', functionName, '数据库路径:', currentDbPath.value);
+      loading.value = true;
+      try {
+        // 初始化数据结构
+        goroutineData.value = [];
         
-        // 获取调用者（父函数）
+        // 获取函数在哪些Goroutine中存在
         try {
-          const parentFunctionsResponse = await axios.post('/api/runtime/functions/parents', {
-            dbpath: currentDbPath.value,
-            functionName: functionName
+          console.log('调用API:', '/api/runtime/gids/function', {
+            path: currentDbPath.value,
+            functionName: functionName,
+            includeMetrics: true
           });
           
-          if (parentFunctionsResponse.data && parentFunctionsResponse.data.functions) {
-            functionData.value.callers = parentFunctionsResponse.data.functions
-              .sort((a, b) => (b.callCount || 0) - (a.callCount || 0));
+          const goroutineResponse = await axios.post('/api/runtime/gids/function', {
+            path: currentDbPath.value,
+            functionName: functionName,
+            includeMetrics: true
+          });
+          
+          console.log('API响应:', goroutineResponse.data);
+          
+          if (goroutineResponse.data && goroutineResponse.data.body) {
+            goroutineData.value = goroutineResponse.data.body;
+            console.log('设置goroutine数据:', goroutineData.value);
+            
+            // 如果有goroutine数据，尝试获取函数ID
+            if (goroutineData.value.length > 0) {
+              try {
+                // 先通过函数名获取函数ID
+                const searchResponse = await axios.post('/api/runtime/functions/search', {
+                  dbpath: currentDbPath.value,
+                  query: functionName,
+                  limit: 1
+                });
+                
+                if (searchResponse.data && searchResponse.data.functions && searchResponse.data.functions.length > 0) {
+                  const functionId = searchResponse.data.functions[0].id;
+                  selectedFunction.value.id = functionId;
+                }
+              } catch (error) {
+                console.error('获取函数ID失败:', error);
+              }
+            }
+          } else {
+            console.log('API响应中没有body字段或body为空');
           }
         } catch (error) {
-          console.error('获取函数调用者数据失败:', error);
+          console.error('获取函数在Goroutine中的分布失败:', error);
+          console.error('错误详情:', error.response?.data);
         }
         
         // 获取函数性能指标
@@ -621,76 +536,17 @@ export default {
           console.error('获取函数性能指标失败:', error);
           functionStats.value = {};
         }
-        
-        // 加载树状图数据
-        if (activeTab.value === 'tree') {
-          loadTreeGraph();
-        }
       } catch (error) {
         console.error('分析函数失败:', error);
-        functionData.value = {
-          callers: [],
-          callees: []
-        };
+        goroutineData.value = [];
         functionStats.value = {};
       } finally {
         loading.value = false;
+        console.log('分析完成，goroutine数据长度:', goroutineData.value.length);
       }
     };
 
-    // 加载树状图数据
-    const loadTreeGraph = async () => {
-      if (!selectedFunction.value || !selectedFunction.value.name) return;
-      
-      loadingTree.value = true;
-      treeData.value = [];
-      
-      try {
-        const response = await axios.post('/api/runtime/tree-graph', {
-          dbPath: currentDbPath.value,
-          functionName: selectedFunction.value.name,
-          chainType: chainType.value,
-          depth: parseInt(treeDepth.value)
-        });
-        
-        if (response.data && Array.isArray(response.data.trees)) {
-          treeData.value = response.data.trees;
-        } else {
-          console.warn('树状图数据格式不符合预期', response.data);
-          treeData.value = [];
-        }
-      } catch (error) {
-        console.error('获取调用树数据失败:', error);
-        treeData.value = [];
-      } finally {
-        loadingTree.value = false;
-      }
-    };
-    
-    // 处理树节点点击事件
-    const handleTreeNodeClick = (node) => {
-      if (!node) return;
-      
-      try {
-        if (node && node.name) {
-          // 查找功能是否在搜索结果中
-          const foundFunction = items.value.find(item => item.name === node.name);
-          
-          if (foundFunction) {
-            selectItem(foundFunction);
-          } else {
-            // 创建一个简单的函数对象
-            const simpleFn = {
-              name: node.name,
-              package: ''
-            };
-            selectItem(simpleFn);
-          }
-        }
-      } catch (error) {
-        console.error('处理树节点点击事件失败:', error);
-      }
-    };
+
 
     // 执行搜索
     const search = () => {
@@ -699,8 +555,16 @@ export default {
         return;
       }
       hideDropdown();
-      // 可以在这里直接搜索或调用其他方法
-      fetchFunctions(searchQuery.value);
+      
+      // 设置选中的函数
+      selectedFunction.value = {
+        id: null, // 暂时设为null，后续通过API获取
+        name: searchQuery.value,
+        package: ''
+      };
+      
+      // 分析函数详情
+      analyzeFunctionDetails(searchQuery.value);
     };
 
     // 高亮文本
@@ -760,15 +624,7 @@ export default {
       return (rateNum * 100).toFixed(1) + '%';
     };
 
-    // 监听标签切换
-    const watchTabChange = () => {
-      if (activeTab.value === 'tree' && selectedFunction.value) {
-        loadTreeGraph();
-      }
-    };
 
-    // 监听activeTab变化
-    watch(activeTab, watchTabChange);
 
     return {
       currentDbPath,
@@ -779,8 +635,6 @@ export default {
       loading,
       searchInput,
       selectedFunction,
-      activeTab,
-      functionData,
       functionStats,
       handleInput,
       onDown,
@@ -794,13 +648,9 @@ export default {
       formatTime,
       formatSuccessRate,
       t,
-      // 树状图相关
-      chainType,
-      treeDepth,
-      treeData,
-      loadingTree,
-      loadTreeGraph,
-      handleTreeNodeClick
+      // Goroutine分布相关
+      goroutineData,
+      handleViewCallChain
     };
   }
 };

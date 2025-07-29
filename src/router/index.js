@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import TraceViewer from '../components/runtime/components/TraceViewer.vue';
-import TraceDetails from '../components/runtime/components/TraceDetails.vue';
+import TraceDetails from '../components/runtime/components/TraceDetailsNew.vue';
 import StaticAnalysis from '../components/callgraph/StaticAnalysis.vue';
 import DbAnalysisDetail from '../components/callgraph/DbAnalysisDetail.vue';
 import WelcomePage from '../components/Welcome.vue';

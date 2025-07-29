@@ -34,41 +34,7 @@ export function useRuntimeApi() {
     }
   };
 
-  // 获取函数分析数据
-  const getFunctionAnalysis = async (dbPath, functionName) => {
-    try {
-      loading.value = true;
-      error.value = null;
-      const response = await axios.post('/api/runtime/function/analysis', {
-        dbpath: dbPath,
-        functionName: functionName
-      });
-      return response.data.data || [];
-    } catch (err) {
-      error.value = err;
-      return [];
-    } finally {
-      loading.value = false;
-    }
-  };
 
-  // 获取调用树数据
-  const getCallTree = async (dbPath, functionName) => {
-    try {
-      loading.value = true;
-      error.value = null;
-      const response = await axios.post('/api/runtime/function/tree', {
-        dbpath: dbPath,
-        functionName: functionName
-      });
-      return response.data.tree || null;
-    } catch (err) {
-      error.value = err;
-      return null;
-    } finally {
-      loading.value = false;
-    }
-  };
 
   // 获取调用统计数据
   const getCallStats = async (dbPath, functionName) => {
@@ -92,8 +58,6 @@ export function useRuntimeApi() {
     loading,
     error,
     getFunctions,
-    getFunctionAnalysis,
-    getCallTree,
     getCallStats
   };
 } 
