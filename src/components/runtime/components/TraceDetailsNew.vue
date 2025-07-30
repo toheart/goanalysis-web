@@ -25,6 +25,17 @@
         </button>
       </div>
       
+      <!-- 高亮处理状态提示 -->
+      <div v-if="isHighlighting" class="alert alert-info alert-dismissible fade show mb-3" role="alert">
+        <div class="d-flex align-items-center">
+          <div class="spinner-border spinner-border-sm me-2" role="status">
+            <span class="visually-hidden">处理中...</span>
+          </div>
+          <span>{{ highlightProgress }}</span>
+        </div>
+        <button type="button" class="btn-close" @click="stopHighlighting" aria-label="关闭"></button>
+      </div>
+      
       <!-- 查询控制面板 -->
       <TraceControls
         v-model:depth="depth"
@@ -210,6 +221,8 @@ export default {
     
     // 防抖和状态控制
     const isProcessing = ref(false);
+    const isHighlighting = ref(false); // 高亮处理状态
+    const highlightProgress = ref(''); // 高亮进度提示
     const debounceMap = new Map();
     
     // 参数相关
@@ -240,11 +253,11 @@ export default {
       setTimeout(() => {
         initializeNodeStates();
         
-        // 只有在有highlight需求时才进行展开
-        if (route.query.highlight && highlightedFunctionId.value) {
+        // 如果有高亮需求且高亮函数已设置，尝试展开
+        if (highlightedFunctionId.value) {
           console.log('数据加载完成，准备展开到高亮函数');
-          setTimeout(() => {
-            expandToHighlightedFunction();
+          setTimeout(async () => {
+            await expandToHighlightedFunction();
           }, 100);
         }
       }, 100);
@@ -263,11 +276,30 @@ export default {
       initializeNodeStates
     } = useTraceTree(flattenedTraceData, gid);
     
+    // 高亮处理状态管理
+    const startHighlighting = (message = '正在处理高亮...') => {
+      isHighlighting.value = true;
+      highlightProgress.value = message;
+    };
+    
+    const updateHighlightProgress = (message) => {
+      highlightProgress.value = message;
+      // 如果收到空消息，自动停止高亮状态
+      if (!message || message.trim() === '') {
+        isHighlighting.value = false;
+      }
+    };
+    
+    const stopHighlighting = () => {
+      isHighlighting.value = false;
+      highlightProgress.value = '';
+    };
+    
     // 使用高亮功能composable
     const {
       highlightedFunctionId,
       isHighlighted,
-      getHighlightedFunctionId,
+      setHighlightedFunction,
       expandToHighlightedFunction,
       resetHighlightState
     } = useTraceHighlight(flattenedTraceData, expandNode, (targetNode) => {
@@ -291,7 +323,7 @@ export default {
       }
       
       return path;
-    });
+    }, loadChildren, depth, updateHighlightProgress);
     
     // 检查项目路径
     const checkProjectPath = () => {
@@ -344,6 +376,7 @@ export default {
       }
       
       isProcessing.value = true;
+      stopHighlighting(); // 停止高亮处理
       
       try {
         clearTreeState();
@@ -413,9 +446,9 @@ export default {
       if (route.query.highlight) {
         const highlightId = Number(route.query.highlight);
         console.log('从URL获取高亮函数ID:', highlightId);
-        // 设置高亮ID到localStorage，等待数据加载完成后处理
-        localStorage.setItem('highlightedFunctionId', String(highlightId));
-        getHighlightedFunctionId();
+        startHighlighting('正在定位高亮函数...');
+        // 直接设置高亮函数ID，这会触发高亮逻辑
+        setHighlightedFunction(highlightId);
       } else {
         // 如果没有highlight需求，清除可能存在的旧的高亮数据
         console.log('无highlight参数，清除旧的高亮数据');
@@ -438,6 +471,10 @@ export default {
       expandedNodes,
       isProcessing,
       
+      // 高亮状态
+      isHighlighting,
+      highlightProgress,
+      
       // 参数相关
       parameters,
       paramMaxLength,
@@ -453,7 +490,8 @@ export default {
       expandAll,
       collapseAll,
       loadChildren,
-      viewParameters
+      viewParameters,
+      stopHighlighting
     };
   }
 };

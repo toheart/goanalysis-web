@@ -2,8 +2,16 @@ import { ref, computed } from 'vue';
 import axios from 'axios';
 
 export function useTraceTree(flattenedTraceData, gid) {
+  // 常量定义
+  const MAX_AUTO_EXPAND_CHILDREN = 3;
+  const MAX_LAZY_LOAD_DEPTH = 8;
+  
   // 树状态管理
   const expandedNodes = ref(new Set());
+  
+  // 工具函数：标准化ID
+  const normalizeId = (id) => String(id);
+  const isSameId = (id1, id2) => normalizeId(id1) === normalizeId(id2);
   
   // 获取当前数据库路径
   const getCurrentDbPath = () => {
@@ -18,22 +26,19 @@ export function useTraceTree(flattenedTraceData, gid) {
   // 构建可见节点列表（重写版本）
   const buildVisibleNodes = () => {
     if (!flattenedTraceData.value || flattenedTraceData.value.length === 0) {
-      console.log('📋 flattenedTraceData 为空');
       return [];
     }
-    
-    console.log(`🔍 构建可见节点，原始数据: ${flattenedTraceData.value.length} 个节点`);
     
     // 严格去重：使用Map确保每个ID只出现一次
     const uniqueNodeMap = new Map();
     flattenedTraceData.value.forEach(node => {
-      if (node && node.id) {
-        const nodeId = String(node.id);
+      if (node?.id) {
+        const nodeId = normalizeId(node.id);
         if (!uniqueNodeMap.has(nodeId)) {
           uniqueNodeMap.set(nodeId, {
             ...node,
             id: nodeId,
-            parentId: node.parentId ? String(node.parentId) : null,
+            parentId: node.parentId ? normalizeId(node.parentId) : null,
             indent: node.indent || 0,
             hasChildren: false // 重置，稍后计算
           });
@@ -46,7 +51,7 @@ export function useTraceTree(flattenedTraceData, gid) {
     // 计算每个节点是否有子节点
     allNodes.forEach(node => {
       const directChildren = allNodes.filter(child => 
-        child.parentId === node.id
+        isSameId(child.parentId, node.id)
       );
       
       // 如果已经有直接子节点，设置 hasChildren 为 true
@@ -57,7 +62,7 @@ export function useTraceTree(flattenedTraceData, gid) {
       // 如果没有直接子节点但可能有（基于缩进级别），保持 mayHaveChildren 为 true
       else if (node.mayHaveChildren !== false) {
         node.hasChildren = false;
-        node.mayHaveChildren = (node.indent || 0) < 8; // 限制懒加载的深度
+        node.mayHaveChildren = (node.indent || 0) < MAX_LAZY_LOAD_DEPTH;
       } 
       // 否则没有子节点
       else {
@@ -87,7 +92,7 @@ export function useTraceTree(flattenedTraceData, gid) {
       // 如果节点已展开，添加其直接子节点
       if (expandedNodes.value.has(node.id)) {
         const children = allNodes.filter(child => 
-          child.parentId === node.id
+          isSameId(child.parentId, node.id)
         );
         
         // 按seq排序子节点，保持时间顺序
@@ -126,7 +131,7 @@ export function useTraceTree(flattenedTraceData, gid) {
       return;
     }
     
-    const normalizedNodeId = String(nodeId);
+    const normalizedNodeId = normalizeId(nodeId);
     const isExpanded = expandedNodes.value.has(normalizedNodeId);
     
     if (isExpanded) {
@@ -134,7 +139,7 @@ export function useTraceTree(flattenedTraceData, gid) {
       collapseNodeAndDescendants(normalizedNodeId);
     } else {
       // 查找节点
-      const node = flattenedTraceData.value.find(n => n && String(n.id) === normalizedNodeId);
+      const node = flattenedTraceData.value.find(n => n && isSameId(n.id, normalizedNodeId));
       
       if (node) {
         // 如果节点可能有子节点但还没有加载，先加载
@@ -156,12 +161,12 @@ export function useTraceTree(flattenedTraceData, gid) {
     // 查找并递归折叠所有子节点
     if (flattenedTraceData.value) {
       const children = flattenedTraceData.value.filter(node => 
-        node && node.parentId && String(node.parentId) === nodeId
+        node?.parentId && isSameId(node.parentId, nodeId)
       );
       
       children.forEach(child => {
         if (child.id) {
-          collapseNodeAndDescendants(String(child.id));
+          collapseNodeAndDescendants(normalizeId(child.id));
         }
       });
     }
@@ -170,22 +175,22 @@ export function useTraceTree(flattenedTraceData, gid) {
   // 展开节点（为兼容性保留）
   const expandNode = (nodeId) => {
     if (!nodeId) return;
-    const normalizedNodeId = String(nodeId);
+    const normalizedNodeId = normalizeId(nodeId);
     expandedNodes.value.add(normalizedNodeId);
   };
   
   // 折叠节点（为兼容性保留）
   const collapseNode = (nodeId) => {
     if (!nodeId) return;
-    collapseNodeAndDescendants(String(nodeId));
+    collapseNodeAndDescendants(normalizeId(nodeId));
   };
   
   // 展开所有节点
   const expandAll = () => {
     if (flattenedTraceData.value) {
       flattenedTraceData.value.forEach(node => {
-        if (node && node.id && node.hasChildren) {
-          expandedNodes.value.add(String(node.id));
+        if (node?.id && node.hasChildren) {
+          expandedNodes.value.add(normalizeId(node.id));
         }
       });
     }
@@ -201,11 +206,11 @@ export function useTraceTree(flattenedTraceData, gid) {
     expandedNodes.value.clear();
   };
   
-  // 初始化节点状态（极简版本）
+  // 初始化节点状态（智能自动展开版本）
   const initializeNodeStates = () => {
-    console.log('🚀 初始化节点状态（极简模式）');
+    console.log('🚀 初始化节点状态（智能自动展开模式）');
     
-    // 完全清空状态，不自动展开任何节点
+    // 清空状态
     clearState();
     
     if (!flattenedTraceData.value || flattenedTraceData.value.length === 0) {
@@ -213,7 +218,32 @@ export function useTraceTree(flattenedTraceData, gid) {
       return;
     }
     
-    console.log(`📊 初始化完成，数据节点: ${flattenedTraceData.value.length} 个，展开节点: 0 个`);
+    // 自动展开前几层节点，让用户看到基本的调用层次
+    const rootNodes = flattenedTraceData.value.filter(node => {
+      const isRoot = !node.parentId || 
+                     node.parentId === '0' || 
+                     !flattenedTraceData.value.some(parent => parent.id === node.parentId);
+      return isRoot;
+    });
+    
+    // 自动展开根节点和第一层子节点
+    rootNodes.forEach(rootNode => {
+      if (rootNode.hasChildren) {
+        expandedNodes.value.add(rootNode.id);
+        console.log(`🔓 自动展开根节点: ${rootNode.name}`);
+        
+        // 找到第一层子节点并展开
+        const firstLevelChildren = flattenedTraceData.value.filter(node => 
+          node.parentId === rootNode.id && node.hasChildren
+        );
+        
+        firstLevelChildren.slice(0, MAX_AUTO_EXPAND_CHILDREN).forEach(child => {
+          expandedNodes.value.add(child.id);
+          console.log(`🔓 自动展开第一层子节点: ${child.name}`);
+        });
+      }
+    });
+    
   };
   
   // 构建路径（简化版本）
@@ -225,7 +255,7 @@ export function useTraceTree(flattenedTraceData, gid) {
     
     while (currentNode.parentId && currentNode.parentId !== '0') {
       const parentNode = flattenedTraceData.value?.find(
-        node => node && String(node.id) === currentNode.parentId
+        node => node && isSameId(node.id, currentNode.parentId)
       );
       
       if (parentNode) {
@@ -270,11 +300,11 @@ export function useTraceTree(flattenedTraceData, gid) {
         
         // 标准化子节点数据
         const standardizedChildren = childrenData.map(child => ({
-          id: String(child.id),
+          id: normalizeId(child.id),
           name: child.name || '未知函数',
           indent: child.depth || ((parentNode.indent || 0) + 1),
           timeCost: child.timeCost || child.avgTime || 'N/A',
-          parentId: String(parentNode.id),
+          parentId: normalizeId(parentNode.id),
           paramCount: child.paramCount || 0,
           gid: gid.value,
           params: [],
@@ -286,29 +316,40 @@ export function useTraceTree(flattenedTraceData, gid) {
         }));
         
         // 合并到现有数据中，避免重复
-        const existingIds = new Set(flattenedTraceData.value.map(node => node.id));
-        const newChildren = standardizedChildren.filter(child => !existingIds.has(child.id));
+        const existingIds = new Set(flattenedTraceData.value.map(node => normalizeId(node.id)));
+        const newChildren = standardizedChildren.filter(child => !existingIds.has(normalizeId(child.id)));
         
         if (newChildren.length > 0) {
           flattenedTraceData.value.push(...newChildren);
-          console.log(`✅ 添加 ${newChildren.length} 个新节点`);
+          console.log(`✅ 添加 ${newChildren.length} 个新节点到 flattenedTraceData`);
+          
+          // 更新父节点的子节点状态
+          parentNode.hasChildren = true;
+          parentNode.mayHaveChildren = false;
+        } else {
+          console.log(`📋 所有子节点已存在，无需添加新节点`);
         }
         
         // 展开当前节点
-        expandedNodes.value.add(String(parentNode.id));
+        expandedNodes.value.add(normalizeId(parentNode.id));
         
-        // 更新父节点状态
-        parentNode.hasChildren = childrenData.length > 0;
-        parentNode.mayHaveChildren = false;
+        // 如果子节点数量为0，更新父节点状态
+        if (childrenData.length === 0) {
+          parentNode.hasChildren = false;
+          parentNode.mayHaveChildren = false;
+          console.log(`📋 父节点 ${parentNode.name} 没有子节点`);
+        }
         
       } else {
         console.warn('API返回的数据格式不正确');
+        console.log('实际返回数据:', response.data);
         parentNode.hasChildren = false;
         parentNode.mayHaveChildren = false;
       }
       
     } catch (error) {
       console.error('加载子节点失败:', error);
+      console.error('错误详情:', error.response?.data || error.message);
       parentNode.hasChildren = false;
       parentNode.mayHaveChildren = false;
     } finally {
