@@ -1,0 +1,116 @@
+/* TraceViewer 组件样式 */
+
+/* 导航标签样式 */
+.nav-tabs .nav-link {
+  font-weight: 500;
+  color: #6c757d;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0;
+  transition: all 0.2s ease;
+}
+
+.nav-tabs .nav-link.active {
+  color: #0d6efd;
+  border-bottom: 2px solid #0d6efd;
+  background-color: transparent;
+}
+
+.nav-tabs .nav-link:hover:not(.active) {
+  background-color: rgba(13, 110, 253, 0.05);
+  border-color: transparent;
+}
+
+/* 消息提示样式 */
+.message-container {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  width: 100%;
+  max-width: 500px;
+  pointer-events: none;
+}
+
+.message-box {
+  padding: 15px 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: slide-down 0.3s ease;
+  pointer-events: auto;
+}
+
+.message-info {
+  background-color: #e8f4fd;
+  border-left: 4px solid #0d6efd;
+  color: #0d6efd;
+}
+
+.message-success {
+  background-color: #e8f8f0;
+  border-left: 4px solid #198754;
+  color: #198754;
+}
+
+.message-error {
+  background-color: #fdf0ef;
+  border-left: 4px solid #dc3545;
+  color: #dc3545;
+}
+
+.message-warning {
+  background-color: #fff8e6;
+  border-left: 4px solid #ffc107;
+  color: #ffc107;
+}
+
+/* 动画效果 */
+@keyframes slide-down {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* 深色模式适配 */
+@media (prefers-color-scheme: dark) {
+  .nav-tabs .nav-link {
+    color: #adb5bd;
+  }
+  
+  .nav-tabs .nav-link.active {
+    color: #5b9aff;
+    border-bottom-color: #5b9aff;
+  }
+  
+  .nav-tabs .nav-link:hover:not(.active) {
+    background-color: rgba(91, 154, 255, 0.1);
+  }
+  
+  .message-info {
+    background-color: rgba(13, 110, 253, 0.15);
+    color: #5b9aff;
+  }
+  
+  .message-success {
+    background-color: rgba(25, 135, 84, 0.15);
+    color: #4dd4ac;
+  }
+  
+  .message-error {
+    background-color: rgba(220, 53, 69, 0.15);
+    color: #ff6b6b;
+  }
+  
+  .message-warning {
+    background-color: rgba(255, 193, 7, 0.15);
+    color: #ffd43b;
+  }
+} 

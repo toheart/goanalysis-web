@@ -1,0 +1,53 @@
+/* CSS 变量定义 - 设计系统 */
+:root {
+  /* 主色系 */
+  --primary-color: #3498db;
+  --secondary-color: #2c3e50;
+  --accent-color: #1abc9c;
+  
+  /* 背景色 */
+  --light-bg: #f8f9fa;
+  --dark-bg: #343a40;
+  --body-bg: #f5f7fa;
+  
+  /* 状态色 */
+  --success-color: #2ecc71;
+  --warning-color: #f39c12;
+  --danger-color: #e74c3c;
+  --info-color: #17a2b8;
+  
+  /* 文字颜色 */
+  --text-color: #333;
+  --text-muted: #6c757d;
+  --light-text: #f8f9fa;
+  
+  /* 边框和阴影 */
+  --border-color: #dee2e6;
+  --border-radius: 8px;
+  --border-radius-sm: 4px;
+  --border-radius-lg: 12px;
+  --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --box-shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
+  --box-shadow-lg: 0 8px 15px rgba(0, 0, 0, 0.1);
+  
+  /* 过渡效果 */
+  --transition: all 0.3s ease;
+  --transition-fast: all 0.15s ease;
+  
+  /* 间距 */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  
+  /* 字体 */
+  --font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-mono: 'Consolas', 'Monaco', 'Courier New', monospace;
+  
+  /* Z-index层级 */
+  --z-dropdown: 1000;
+  --z-modal: 1050;
+  --z-tooltip: 1070;
+  --z-loading: 2000;
+} 

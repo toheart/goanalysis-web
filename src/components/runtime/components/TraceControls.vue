@@ -153,32 +153,6 @@ export default {
 };
 </script>
 
-<style scoped>
-.form-control[type="number"] {
-  max-width: 100px;
-}
-
-.btn-group .btn {
-  font-size: 0.875rem;
-}
-
-.progress {
-  height: 6px;
-}
-
-.card-header .controls {
-  flex-shrink: 0;
-}
-
-.form-text {
-  font-size: 0.75rem;
-}
-
-small.text-muted {
-  font-size: 0.75rem;
-}
-
-.bi {
-  font-size: 0.875rem;
-}
+<style>
+@import url("../../../assets/styles/components/runtime/trace-controls.css");
 </style> 

@@ -194,7 +194,6 @@
         <h4 class="text-primary">
           <i class="bi bi-activity me-2"></i>{{ $t('runtimeAnalysis.tabs.runtimeAnalysis') }}
         </h4>
-        <p class="text-muted mb-0">程序运行分析大盘 - 包含Goroutine列表和函数查询分析</p>
       </div>
 
       <!-- 子路由视图 -->
@@ -708,81 +707,6 @@ export default {
 };
 </script>
 
-<style scoped>
-.nav-tabs .nav-link {
-  font-weight: 500;
-  color: #6c757d;
-  padding: 0.75rem 1.25rem;
-  border-radius: 0;
-  transition: all 0.2s ease;
-}
-
-.nav-tabs .nav-link.active {
-  color: #0d6efd;
-  border-bottom: 2px solid #0d6efd;
-  background-color: transparent;
-}
-
-.nav-tabs .nav-link:hover:not(.active) {
-  background-color: rgba(13, 110, 253, 0.05);
-  border-color: transparent;
-}
-
-/* 消息提示样式 */
-.message-container {
-  position: fixed;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 9999;
-  width: 100%;
-  max-width: 500px;
-  pointer-events: none;
-}
-
-.message-box {
-  padding: 15px 20px;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  animation: slide-down 0.3s ease;
-  pointer-events: auto;
-}
-
-.message-info {
-  background-color: #e8f4fd;
-  border-left: 4px solid #0d6efd;
-  color: #0d6efd;
-}
-
-.message-success {
-  background-color: #e8f8f0;
-  border-left: 4px solid #198754;
-  color: #198754;
-}
-
-.message-error {
-  background-color: #fdf0ef;
-  border-left: 4px solid #dc3545;
-  color: #dc3545;
-}
-
-.message-warning {
-  background-color: #fff8e6;
-  border-left: 4px solid #ffc107;
-  color: #ffc107;
-}
-
-@keyframes slide-down {
-  from {
-    transform: translateY(-20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
+<style>
+@import url("../../../assets/styles/components/runtime/trace-viewer.css");
 </style>

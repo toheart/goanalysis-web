@@ -1,0 +1,695 @@
+/* TraceDetailsNew 组件样式 - 表格结构优化 */
+
+/* 基础容器样式 */
+.trace-details {
+  padding: 0;
+}
+
+/* 页面标题样式 */
+.page-title {
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: #2c3e50;
+  margin: 0;
+}
+
+/* 追踪内容卡片 */
+.trace-content-card {
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.trace-content-card .card-header {
+  background: linear-gradient(135deg, #3498db, #2980b9);
+  border: none;
+  padding: 1rem 1.5rem;
+}
+
+.trace-content-card .card-header h5 {
+  color: white;
+  margin: 0;
+  font-weight: 600;
+}
+
+.trace-content-card .card-header small {
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 500;
+}
+
+/* 表格容器 */
+.trace-table-container {
+  max-height: calc(100vh - 300px);
+  overflow-y: auto;
+  overflow-x: auto;
+  border-radius: 0 0 12px 12px;
+}
+
+/* 表格样式 */
+.trace-table {
+  margin: 0;
+  border: none;
+  font-size: 0.9rem;
+}
+
+.trace-table thead th {
+  background-color: #f8f9fa;
+  border-bottom: 2px solid #e9ecef;
+  color: #495057;
+  font-weight: 600;
+  padding: 1rem 0.75rem;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  white-space: nowrap;
+}
+
+.trace-table tbody tr {
+  border: none;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.trace-table tbody tr:hover {
+  background-color: rgba(52, 152, 219, 0.05);
+  transform: translateX(2px);
+}
+
+.trace-table tbody td {
+  border: none;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  padding: 0.75rem;
+  vertical-align: middle;
+}
+
+/* 列宽设置 */
+.sequence-col {
+  width: 80px;
+  min-width: 80px;
+  text-align: center;
+}
+
+.function-col {
+  min-width: 400px;
+  padding-left: 0.5rem !important;
+}
+
+.action-col {
+  width: 120px;
+  min-width: 120px;
+  text-align: center;
+}
+
+/* 序号样式 */
+.sequence-col .badge {
+  font-size: 0.75rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 6px;
+}
+
+/* 高亮指示器 */
+.highlight-indicator {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  background: #ff6b35;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 0 0 2px #ff6b35, 0 2px 4px rgba(255, 107, 53, 0.3);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: translateY(-50%) scale(1); }
+  50% { transform: translateY(-50%) scale(1.1); }
+  100% { transform: translateY(-50%) scale(1); }
+}
+
+/* 函数名单元格 - 优化对齐 */
+.function-name-cell {
+  position: relative;
+}
+
+.function-name-cell .d-flex {
+  align-items: center !important;
+  min-height: 40px;
+  line-height: 1;
+}
+
+/* 函数缩进 - 改进视觉效果，不同层级使用不同颜色 */
+.function-indent {
+  display: inline-block;
+  height: 24px;
+  border-radius: 2px;
+  margin-right: 8px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+/* 不同层级的缩进颜色 */
+.function-indent[style*="width: 0px"],
+.function-indent[style*="width: 24px"] {
+  background: linear-gradient(to right, rgba(231, 76, 60, 0.1), rgba(231, 76, 60, 0.2));
+  border-left: 3px solid rgba(231, 76, 60, 0.6);
+}
+
+.function-indent[style*="width: 48px"],
+.function-indent[style*="width: 72px"] {
+  background: linear-gradient(to right, rgba(52, 152, 219, 0.1), rgba(52, 152, 219, 0.2));
+  border-left: 3px solid rgba(52, 152, 219, 0.6);
+}
+
+.function-indent[style*="width: 96px"],
+.function-indent[style*="width: 120px"] {
+  background: linear-gradient(to right, rgba(46, 204, 113, 0.1), rgba(46, 204, 113, 0.2));
+  border-left: 3px solid rgba(46, 204, 113, 0.6);
+}
+
+.function-indent[style*="width: 144px"],
+.function-indent[style*="width: 168px"] {
+  background: linear-gradient(to right, rgba(155, 89, 182, 0.1), rgba(155, 89, 182, 0.2));
+  border-left: 3px solid rgba(155, 89, 182, 0.6);
+}
+
+.function-indent[style*="width: 192px"],
+.function-indent[style*="width: 216px"] {
+  background: linear-gradient(to right, rgba(241, 196, 15, 0.1), rgba(241, 196, 15, 0.2));
+  border-left: 3px solid rgba(241, 196, 15, 0.6);
+}
+
+.function-indent[style*="width: 240px"],
+.function-indent[style*="width: 264px"] {
+  background: linear-gradient(to right, rgba(230, 126, 34, 0.1), rgba(230, 126, 34, 0.2));
+  border-left: 3px solid rgba(230, 126, 34, 0.6);
+}
+
+.function-indent[style*="width: 288px"],
+.function-indent[style*="width: 312px"] {
+  background: linear-gradient(to right, rgba(26, 188, 156, 0.1), rgba(26, 188, 156, 0.2));
+  border-left: 3px solid rgba(26, 188, 156, 0.6);
+}
+
+.function-indent[style*="width: 336px"],
+.function-indent[style*="width: 360px"] {
+  background: linear-gradient(to right, rgba(52, 73, 94, 0.1), rgba(52, 73, 94, 0.2));
+  border-left: 3px solid rgba(52, 73, 94, 0.6);
+}
+
+.function-indent[style*="width: 384px"],
+.function-indent[style*="width: 408px"] {
+  background: linear-gradient(to right, rgba(149, 165, 166, 0.1), rgba(149, 165, 166, 0.2));
+  border-left: 3px solid rgba(149, 165, 166, 0.6);
+}
+
+/* 为更深层级添加额外的视觉指示 */
+.function-indent::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 0 2px 2px 0;
+}
+
+/* 节点切换按钮容器 - 重要：确保对齐 */
+.node-toggle {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 32px !important;
+  height: 32px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+  position: relative;
+}
+
+/* 重置Bootstrap的me-2边距 */
+.node-toggle.me-2 {
+  margin-right: 8px !important;
+}
+
+/* 切换按钮 - 重要：覆盖Bootstrap样式 */
+.toggle-btn.btn.btn-sm.btn-link {
+  background: rgba(52, 152, 219, 0.1) !important;
+  border: 1px solid rgba(52, 152, 219, 0.2) !important;
+  color: #3498db !important;
+  cursor: pointer;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 6px !important;
+  transition: all 0.2s ease;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 28px !important;
+  height: 28px !important;
+  font-size: 14px !important;
+  text-decoration: none !important;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.toggle-btn.btn.btn-sm.btn-link:hover {
+  background-color: rgba(52, 152, 219, 0.2) !important;
+  border-color: rgba(52, 152, 219, 0.4) !important;
+  transform: translate(-50%, -50%) scale(1.05) !important;
+  color: #2980b9 !important;
+  box-shadow: 0 2px 4px rgba(52, 152, 219, 0.2) !important;
+  text-decoration: none !important;
+}
+
+.toggle-btn.btn.btn-sm.btn-link:focus {
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.25) !important;
+  text-decoration: none !important;
+}
+
+.toggle-btn.btn.btn-sm.btn-link:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed;
+  transform: translate(-50%, -50%) !important;
+  background-color: rgba(52, 152, 219, 0.05) !important;
+}
+
+/* 可能有子节点的按钮样式 */
+.toggle-btn.text-muted {
+  color: #6c757d !important;
+  background: rgba(108, 117, 125, 0.1) !important;
+  border-color: rgba(108, 117, 125, 0.2) !important;
+}
+
+.toggle-btn.text-muted:hover {
+  color: #495057 !important;
+  background: rgba(108, 117, 125, 0.2) !important;
+  border-color: rgba(108, 117, 125, 0.4) !important;
+}
+
+/* 占位符样式 */
+.toggle-placeholder {
+  width: 28px !important;
+  height: 28px !important;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* 加载状态 */
+.spinner-border-sm {
+  width: 18px !important;
+  height: 18px !important;
+  color: #3498db;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* 函数名样式 - 改进对齐 */
+.function-name {
+  font-weight: 500;
+  color: #2c3e50;
+  word-break: break-all;
+  line-height: 1.4;
+  flex: 1;
+  margin-right: 12px;
+  margin-left: 8px;
+}
+
+/* 参数数量徽章 - 改进显示 */
+.param-count {
+  flex-shrink: 0;
+}
+
+.param-count .badge {
+  font-size: 0.7rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #e8f4fd, #d4edda) !important;
+  color: #2c3e50 !important;
+  border: 1px solid #b8daff;
+  font-weight: 500;
+  position: relative;
+  min-width: 24px;
+  text-align: center;
+}
+
+.param-count .badge::before {
+  content: "参数 ";
+  font-size: 0.65rem;
+  color: #6c757d;
+  font-weight: 400;
+}
+
+.param-count .badge::after {
+  content: " 个";
+  font-size: 0.65rem;
+  color: #6c757d;
+  font-weight: 400;
+}
+
+/* 操作按钮 */
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.action-buttons .btn {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+  transition: all 0.2s ease;
+}
+
+.action-buttons .btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* 层级背景色 */
+.level-0 { 
+  background-color: rgba(231, 76, 60, 0.02); 
+  border-left: 3px solid rgba(231, 76, 60, 0.3); 
+}
+.level-1 { 
+  background-color: rgba(52, 152, 219, 0.02); 
+  border-left: 3px solid rgba(52, 152, 219, 0.3); 
+}
+.level-2 { 
+  background-color: rgba(46, 204, 113, 0.02); 
+  border-left: 3px solid rgba(46, 204, 113, 0.3); 
+}
+.level-3 { 
+  background-color: rgba(155, 89, 182, 0.02); 
+  border-left: 3px solid rgba(155, 89, 182, 0.3); 
+}
+.level-4 { 
+  background-color: rgba(241, 196, 15, 0.02); 
+  border-left: 3px solid rgba(241, 196, 15, 0.3); 
+}
+.level-5 { 
+  background-color: rgba(230, 126, 34, 0.02); 
+  border-left: 3px solid rgba(230, 126, 34, 0.3); 
+}
+.level-6 { 
+  background-color: rgba(26, 188, 156, 0.02); 
+  border-left: 3px solid rgba(26, 188, 156, 0.3); 
+}
+.level-7 { 
+  background-color: rgba(52, 73, 94, 0.02); 
+  border-left: 3px solid rgba(52, 73, 94, 0.3); 
+}
+.level-8 { 
+  background-color: rgba(149, 165, 166, 0.02); 
+  border-left: 3px solid rgba(149, 165, 166, 0.3); 
+}
+
+/* 高亮行样式 */
+.is-highlighted {
+  background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%) !important;
+  box-shadow: inset 4px 0 0 #ff6b35, 0 2px 8px rgba(255, 107, 53, 0.15) !important;
+  border-left: 4px solid #ff6b35 !important;
+}
+
+.is-highlighted .function-name {
+  color: #d35400;
+  font-weight: 600;
+}
+
+.is-highlighted .param-count .badge {
+  background: linear-gradient(135deg, #ffe8d6, #ffd4a3) !important;
+  border-color: #ff6b35;
+}
+
+/* 展开状态样式 */
+.is-expanded {
+  background-color: rgba(52, 152, 219, 0.03);
+}
+
+.has-children {
+  border-left: 3px solid #3498db;
+}
+
+.has-children.is-expanded {
+  border-left: 3px solid #27ae60;
+}
+
+.has-children.is-expanded .toggle-btn.btn.btn-sm.btn-link {
+  background: rgba(39, 174, 96, 0.1) !important;
+  border-color: rgba(39, 174, 96, 0.3) !important;
+  color: #27ae60 !important;
+}
+
+.has-children.is-expanded .toggle-btn.btn.btn-sm.btn-link:hover {
+  background: rgba(39, 174, 96, 0.2) !important;
+  border-color: rgba(39, 174, 96, 0.4) !important;
+  color: #229954 !important;
+}
+
+/* 空状态样式 */
+.text-center.p-5 {
+  color: #6c757d;
+}
+
+.text-center.p-5 .display-1 {
+  font-size: 4rem;
+  opacity: 0.3;
+}
+
+/* 滚动条样式 */
+.trace-table-container::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.trace-table-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.trace-table-container::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.trace-table-container::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .page-title {
+    font-size: 1.5rem;
+  }
+  
+  .trace-table {
+    font-size: 0.8rem;
+  }
+  
+  .trace-table thead th {
+    padding: 0.75rem 0.5rem;
+  }
+  
+  .trace-table tbody td {
+    padding: 0.5rem 0.25rem;
+  }
+  
+  .function-col {
+    min-width: 250px;
+  }
+  
+  .function-name {
+    font-size: 0.85rem;
+  }
+  
+  .sequence-col {
+    width: 60px;
+    min-width: 60px;
+  }
+  
+  .action-col {
+    width: 80px;
+    min-width: 80px;
+  }
+  
+  .trace-table-container {
+    max-height: calc(100vh - 250px);
+  }
+  
+  .param-count .badge::before,
+  .param-count .badge::after {
+    display: none;
+  }
+  
+  .param-count .badge {
+    min-width: 20px;
+    padding: 0.2rem 0.4rem;
+    font-size: 0.65rem;
+  }
+  
+  .node-toggle {
+    width: 28px !important;
+    height: 28px !important;
+  }
+  
+  .toggle-btn.btn.btn-sm.btn-link {
+    width: 24px !important;
+    height: 24px !important;
+    font-size: 12px !important;
+  }
+}
+
+/* 暗色模式适配 */
+@media (prefers-color-scheme: dark) {
+  .page-title {
+    color: #ecf0f1;
+  }
+  
+  .trace-content-card {
+    background-color: #2c3e50;
+    color: #ecf0f1;
+  }
+  
+  .trace-table thead th {
+    background-color: #34495e;
+    color: #ecf0f1;
+    border-bottom-color: #4a5568;
+  }
+  
+  .trace-table tbody tr {
+    color: #ecf0f1;
+  }
+  
+  .trace-table tbody tr:hover {
+    background-color: rgba(52, 152, 219, 0.1);
+  }
+  
+  .trace-table tbody td {
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .function-name {
+    color: #ecf0f1;
+  }
+  
+  .is-highlighted {
+    background: linear-gradient(135deg, rgba(255, 243, 205, 0.2) 0%, rgba(255, 234, 167, 0.2) 100%) !important;
+    color: #ecf0f1 !important;
+  }
+  
+  .is-highlighted .function-name {
+    color: #f39c12;
+  }
+  
+  .toggle-btn.btn.btn-sm.btn-link {
+    background: rgba(93, 173, 226, 0.1);
+    border-color: rgba(93, 173, 226, 0.2);
+    color: #5dade2;
+  }
+  
+  .toggle-btn.btn.btn-sm.btn-link:hover {
+    background-color: rgba(93, 173, 226, 0.2);
+    border-color: rgba(93, 173, 226, 0.4);
+    color: #3498db;
+  }
+  
+  .param-count .badge {
+    background: linear-gradient(135deg, #4a5568, #2d3748) !important;
+    color: #a0aec0 !important;
+    border-color: #6c757d;
+  }
+  
+  .param-count .badge::before,
+  .param-count .badge::after {
+    color: #718096;
+  }
+  
+  /* 暗色模式下的缩进颜色 */
+  .function-indent[style*="width: 0px"],
+  .function-indent[style*="width: 24px"] {
+    background: linear-gradient(to right, rgba(231, 76, 60, 0.15), rgba(231, 76, 60, 0.25));
+    border-left-color: rgba(231, 76, 60, 0.7);
+  }
+  
+  .function-indent[style*="width: 48px"],
+  .function-indent[style*="width: 72px"] {
+    background: linear-gradient(to right, rgba(93, 173, 226, 0.15), rgba(93, 173, 226, 0.25));
+    border-left-color: rgba(93, 173, 226, 0.7);
+  }
+  
+  .function-indent[style*="width: 96px"],
+  .function-indent[style*="width: 120px"] {
+    background: linear-gradient(to right, rgba(46, 204, 113, 0.15), rgba(46, 204, 113, 0.25));
+    border-left-color: rgba(46, 204, 113, 0.7);
+  }
+  
+  .function-indent[style*="width: 144px"],
+  .function-indent[style*="width: 168px"] {
+    background: linear-gradient(to right, rgba(155, 89, 182, 0.15), rgba(155, 89, 182, 0.25));
+    border-left-color: rgba(155, 89, 182, 0.7);
+  }
+  
+  .function-indent[style*="width: 192px"],
+  .function-indent[style*="width: 216px"] {
+    background: linear-gradient(to right, rgba(241, 196, 15, 0.15), rgba(241, 196, 15, 0.25));
+    border-left-color: rgba(241, 196, 15, 0.7);
+  }
+  
+  .function-indent[style*="width: 240px"],
+  .function-indent[style*="width: 264px"] {
+    background: linear-gradient(to right, rgba(230, 126, 34, 0.15), rgba(230, 126, 34, 0.25));
+    border-left-color: rgba(230, 126, 34, 0.7);
+  }
+  
+  .function-indent[style*="width: 288px"],
+  .function-indent[style*="width: 312px"] {
+    background: linear-gradient(to right, rgba(26, 188, 156, 0.15), rgba(26, 188, 156, 0.25));
+    border-left-color: rgba(26, 188, 156, 0.7);
+  }
+  
+  .function-indent[style*="width: 336px"],
+  .function-indent[style*="width: 360px"] {
+    background: linear-gradient(to right, rgba(52, 73, 94, 0.15), rgba(52, 73, 94, 0.25));
+    border-left-color: rgba(52, 73, 94, 0.7);
+  }
+  
+  .function-indent[style*="width: 384px"],
+  .function-indent[style*="width: 408px"] {
+    background: linear-gradient(to right, rgba(149, 165, 166, 0.15), rgba(149, 165, 166, 0.25));
+    border-left-color: rgba(149, 165, 166, 0.7);
+  }
+  
+  .function-indent::after {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  
+  .parameters-modal-body::-webkit-scrollbar-track,
+  .param-text::-webkit-scrollbar-track,
+  .json-viewer-container::-webkit-scrollbar-track,
+  :deep(.jv-container)::-webkit-scrollbar-track {
+    background: #4a5568;
+  }
+  
+  .parameters-modal-body::-webkit-scrollbar-thumb,
+  .param-text::-webkit-scrollbar-thumb,
+  .json-viewer-container::-webkit-scrollbar-thumb,
+  :deep(.jv-container)::-webkit-scrollbar-thumb {
+    background: #718096;
+  }
+  
+  .parameters-modal-body::-webkit-scrollbar-thumb:hover,
+  .param-text::-webkit-scrollbar-thumb:hover,
+  .json-viewer-container::-webkit-scrollbar-thumb:hover,
+  :deep(.jv-container)::-webkit-scrollbar-thumb:hover {
+    background: #a0aec0;
+  }
+} 

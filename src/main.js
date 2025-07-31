@@ -8,7 +8,7 @@ import 'bootstrap/dist/css/bootstrap.min.css'
 // 引入 Bootstrap JS
 import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 // 引入全局自定义样式
-import './assets/styles.css'
+import './assets/styles/global.css'
 // 引入 vue-json-viewer 的样式
 import 'vue-json-viewer/style.css'
 
