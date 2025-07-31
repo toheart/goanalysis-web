@@ -51,19 +51,19 @@ export function useTraceHighlight(flattenedTraceData, expandNode, buildPathToNod
     // 重置展开标志
     hasExpandedForHighlight.value = false;
     
-    // 如果设置了新的高亮函数，尝试展开到该函数
-    if (functionId) {
-      setTimeout(async () => {
-        await expandToHighlightedFunction();
-      }, 100);
-    }
+    // 注意：不在这里立即执行高亮逻辑，等待数据加载完成后再执行
   };
   
   // 展开到高亮函数
   const expandToHighlightedFunction = async () => {
     if (!highlightedFunctionId.value || hasExpandedForHighlight.value) {
+      console.log('❌ 高亮函数ID为空或已展开过');
       return;
     }
+    
+    console.log('🔍 开始查找高亮函数:', highlightedFunctionId.value);
+    console.log('📊 当前数据节点数量:', flattenedTraceData.value.length);
+    console.log('📋 当前数据节点ID列表:', flattenedTraceData.value.slice(0, 10).map(n => n.id));
     
     progressCallback?.('正在查找高亮函数...');
     
@@ -73,6 +73,7 @@ export function useTraceHighlight(flattenedTraceData, expandNode, buildPathToNod
     );
     
     if (highlightNode) {
+      console.log('✅ 找到目标节点:', highlightNode);
       progressCallback?.('找到目标函数，正在展开路径...');
       
       // 设置标志，防止重复展开
@@ -99,6 +100,7 @@ export function useTraceHighlight(flattenedTraceData, expandNode, buildPathToNod
       return;
     }
     
+    console.log('❌ 在现有数据中未找到目标节点，尝试通过API查找');
     progressCallback?.('未找到目标函数，正在通过API查找...');
     
     // 如果直接查找失败，使用API接口查找函数信息

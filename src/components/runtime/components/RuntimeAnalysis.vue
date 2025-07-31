@@ -1,5 +1,11 @@
 <template>
   <div class="runtime-analysis">
+    <!-- Module选择器 -->
+    <ModuleSelector 
+      :db-path="getCurrentDbPath()"
+      @module-change="handleModuleChange"
+    />
+    
     <!-- 搜索框 -->
     <div class="search-container mb-4">
       
@@ -12,7 +18,7 @@
             class="list-group-item list-group-item-action"
             @click="selectFunction(func.name)"
           >
-            {{ func.name }}
+            {{ formatFunctionName(func.name) }}
           </button>
         </div>
       </div>
@@ -61,48 +67,71 @@
 
 
       <!-- 热点函数分析 -->
-      <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0"><i class="bi bi-fire me-2"></i>{{ $t('runtimeAnalysis.hotFunctions.title') }}</h5>
+      <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-gradient-primary text-white d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">
+            <i class="bi bi-fire me-2"></i>{{ $t('runtimeAnalysis.hotFunctions.title') }}
+            <small class="ms-2 opacity-75">(Top 10)</small>
+          </h5>
           <div class="btn-group">
-            <button class="btn btn-sm btn-outline-primary" @click="sortHotFunctions('calls')" :class="{ active: hotFunctionSortBy === 'calls' }">
-              {{ $t('runtimeAnalysis.hotFunctions.sortByCalls') }}
+            <button class="btn btn-sm btn-light" @click="sortHotFunctions('calls')" :class="{ active: hotFunctionSortBy === 'calls' }">
+              <i class="bi bi-sort-numeric-down me-1"></i>{{ $t('runtimeAnalysis.hotFunctions.sortByCalls') }}
             </button>
-            <button class="btn btn-sm btn-outline-primary" @click="sortHotFunctions('time')" :class="{ active: hotFunctionSortBy === 'time' }">
-              {{ $t('runtimeAnalysis.hotFunctions.sortByTime') }}
+            <button class="btn btn-sm btn-light" @click="sortHotFunctions('time')" :class="{ active: hotFunctionSortBy === 'time' }">
+              <i class="bi bi-clock-history me-1"></i>{{ $t('runtimeAnalysis.hotFunctions.sortByTime') }}
             </button>
           </div>
         </div>
-        <div class="card-body">
+        <div class="card-body p-0">
           <div v-if="loading" class="text-center py-5">
-            <div class="spinner-border text-primary" role="status">
+            <div class="spinner-border text-primary mb-3" role="status">
               <span class="visually-hidden">{{ $t('runtimeAnalysis.hotFunctions.loading') }}</span>
             </div>
-            <p class="mt-3">{{ $t('runtimeAnalysis.hotFunctions.loadingData') }}</p>
+            <p class="text-muted mb-0">{{ $t('runtimeAnalysis.hotFunctions.loadingData') }}</p>
           </div>
           <div v-else-if="hotFunctions.length === 0" class="text-center py-5">
-            <i class="bi bi-exclamation-circle text-warning display-4"></i>
-            <p class="mt-3">{{ $t('runtimeAnalysis.hotFunctions.noData') }}</p>
+            <div class="empty-state">
+              <i class="bi bi-exclamation-circle text-warning display-4 mb-3"></i>
+              <h6 class="text-muted">{{ $t('runtimeAnalysis.hotFunctions.noData') }}</h6>
+              <p class="text-muted small">暂无热点函数数据</p>
+            </div>
           </div>
           <div v-else>
             <div class="table-responsive">
-              <table class="table table-hover">
-                <thead>
+              <table class="table table-hover mb-0">
+                <thead class="table-light">
                   <tr>
-                    <th>{{ $t('runtimeAnalysis.hotFunctions.functionName') }}</th>
-                    <th class="text-center">{{ $t('runtimeAnalysis.hotFunctions.callCount') }}</th>
-                    <th class="text-center">{{ $t('runtimeAnalysis.hotFunctions.totalTime') }}</th>
-                    <th class="text-center">{{ $t('runtimeAnalysis.hotFunctions.avgTime') }}</th>
+                    <th class="border-0">
+                      <i class="bi bi-code-slash me-1"></i>{{ $t('runtimeAnalysis.hotFunctions.functionName') }}
+                    </th>
+                    <th class="text-center border-0">
+                      <i class="bi bi-arrow-repeat me-1"></i>{{ $t('runtimeAnalysis.hotFunctions.callCount') }}
+                    </th>
+                    <th class="text-center border-0">
+                      <i class="bi bi-stopwatch me-1"></i>{{ $t('runtimeAnalysis.hotFunctions.totalTime') }}
+                    </th>
+                    <th class="text-center border-0">
+                      <i class="bi bi-speedometer2 me-1"></i>{{ $t('runtimeAnalysis.hotFunctions.avgTime') }}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(func, index) in hotFunctions.slice(0, 10)" :key="index">
-                    <td><code>{{ func.name }}</code></td>
-                    <td class="text-center">
-                      <span class="badge bg-primary">{{ func.callCount }}</span>
+                  <tr v-for="(func, index) in hotFunctions.slice(0, 10)" :key="index" class="hot-function-row">
+                    <td class="function-name-cell">
+                      <div class="d-flex align-items-center">
+                        <span class="rank-badge me-2">{{ index + 1 }}</span>
+                        <code class="function-name">{{ formatFunctionName(func.name) }}</code>
+                      </div>
                     </td>
-                    <td class="text-center">{{ func.totalTime }}</td>
-                    <td class="text-center">{{ func.avgTime }}</td>
+                    <td class="text-center">
+                      <span class="badge bg-primary rounded-pill">{{ func.callCount }}</span>
+                    </td>
+                    <td class="text-center">
+                      <span class="time-badge total-time">{{ func.totalTime }}</span>
+                    </td>
+                    <td class="text-center">
+                      <span class="time-badge avg-time">{{ func.avgTime }}</span>
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -112,60 +141,84 @@
       </div>
 
       <!-- Goroutine列表 -->
-      <div class="card mb-4">
-        <div class="card-header">
-          <h5 class="mb-0"><i class="bi bi-list-ul me-2"></i>{{ $t('runtimeAnalysis.goroutineList.title') }}</h5>
+      <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-gradient-info text-white d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">
+            <i class="bi bi-list-ul me-2"></i>{{ $t('runtimeAnalysis.goroutineList.title') }}
+            <small class="ms-2 opacity-75">({{ total }} 个)</small>
+          </h5>
+          <div class="d-flex align-items-center">
+            <span class="badge bg-light text-dark me-2">
+              <i class="bi bi-activity me-1"></i>活跃: {{ goroutineStats.active }}
+            </span>
+          </div>
         </div>
         <div class="card-body p-0">
           <div class="table-responsive">
-            <table class="table table-hover table-striped mb-0">
+            <table class="table table-hover mb-0">
               <thead class="table-light">
                 <tr>
-                  <th>{{ $t('runtimeAnalysis.goroutineList.gid') }}</th>
-                  <th>{{ $t('runtimeAnalysis.goroutineList.initialFunction') }}</th>
-                  <th class="text-center">{{ $t('runtimeAnalysis.goroutineList.callDepth') }}</th>
-                  <th class="text-center">{{ $t('runtimeAnalysis.goroutineList.executionTime') }}</th>
-                  <th class="text-center">状态</th>
-                  <th class="text-center">{{ $t('runtimeAnalysis.goroutineList.actions') }}</th>
+                  <th class="border-0">
+                    <i class="bi bi-hash me-1"></i>{{ $t('runtimeAnalysis.goroutineList.gid') }}
+                  </th>
+                  <th class="border-0">
+                    <i class="bi bi-code-slash me-1"></i>{{ $t('runtimeAnalysis.goroutineList.initialFunction') }}
+                  </th>
+                  <th class="text-center border-0">
+                    <i class="bi bi-layers me-1"></i>{{ $t('runtimeAnalysis.goroutineList.callDepth') }}
+                  </th>
+                  <th class="text-center border-0">
+                    <i class="bi bi-stopwatch me-1"></i>{{ $t('runtimeAnalysis.goroutineList.executionTime') }}
+                  </th>
+                  <th class="text-center border-0">
+                    <i class="bi bi-circle-fill me-1"></i>状态
+                  </th>
+                  <th class="text-center border-0">
+                    <i class="bi bi-gear me-1"></i>{{ $t('runtimeAnalysis.goroutineList.actions') }}
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="result in filteredGIDs" :key="result.GID">
-                  <td><span class="badge bg-primary">{{ result.gid }}</span></td>
-                  <td><code>{{ result.initialFunc }}</code></td>
-                  <td class="text-center">{{ result.depth || '-' }}</td>
-                  <td class="text-center">{{ result.executionTime || '-' }}</td>
+                <tr v-for="result in filteredGIDs" :key="result.GID" class="goroutine-row">
+                  <td class="gid-cell">
+                    <span class="badge bg-primary rounded-pill">#{{ result.gid }}</span>
+                  </td>
+                  <td class="function-cell">
+                    <code class="function-name">{{ formatFunctionName(result.initialFunc) }}</code>
+                  </td>
                   <td class="text-center">
-                    <span v-if="result.isFinished" class="badge bg-success">已完成</span>
-                    <span v-else class="badge bg-warning">运行中</span>
+                    <span class="depth-badge">{{ result.depth || '-' }}</span>
+                  </td>
+                  <td class="text-center">
+                    <span class="time-badge execution-time">{{ result.executionTime || '-' }}</span>
+                  </td>
+                  <td class="text-center">
+                    <span v-if="result.isFinished" class="badge bg-success rounded-pill">
+                      <i class="bi bi-check-circle me-1"></i>已完成
+                    </span>
+                    <span v-else class="badge bg-warning rounded-pill">
+                      <i class="bi bi-play-circle me-1"></i>运行中
+                    </span>
                   </td>
                   <td class="text-center">
                     <template v-if="result.gid">
-                      <div class="btn-group">
-                        <router-link 
-                          :to="{ name: 'TraceDetails', params: { gid: result.gid } }" 
-                          class="btn btn-sm btn-primary"
-                          :title="$t('runtimeAnalysis.goroutineList.details')"
-                        >
-                          <i class="bi bi-eye"></i> {{ $t('runtimeAnalysis.goroutineList.details') }}
-                        </router-link>
-                        <button 
-                          class="btn btn-sm btn-success"
-                          :title="$t('runtimeAnalysis.goroutineList.callGraph')"
-                          @click="showFunctionCallGraph(result.gid)"
-                        >
-                          <i class="bi bi-graph-up"></i> {{ $t('runtimeAnalysis.goroutineList.callGraph') }}
-                        </button>
-                      </div>
+                      <router-link 
+                        :to="{ name: 'TraceDetails', params: { gid: result.gid } }" 
+                        class="btn btn-sm btn-outline-primary"
+                        :title="$t('runtimeAnalysis.goroutineList.details')"
+                      >
+                        <i class="bi bi-eye me-1"></i>{{ $t('runtimeAnalysis.goroutineList.details') }}
+                      </router-link>
                     </template>
                   </td>
                 </tr>
                 <!-- 无数据时显示 -->
                 <tr v-if="filteredGIDs.length === 0">
-                  <td colspan="6" class="text-center py-4">
-                    <div class="alert alert-info mb-0">
-                      <i class="bi bi-info-circle me-2"></i>
-                      {{ $t('runtimeAnalysis.goroutineList.noData') }}
+                  <td colspan="6" class="text-center py-5">
+                    <div class="empty-state">
+                      <i class="bi bi-inbox text-muted display-4 mb-3"></i>
+                      <h6 class="text-muted">{{ $t('runtimeAnalysis.goroutineList.noData') }}</h6>
+                      <p class="text-muted small">暂无Goroutine数据</p>
                     </div>
                   </td>
                 </tr>
@@ -223,14 +276,7 @@
       <FunctionAnalysis />
 
 
-      <!-- 函数调用关系图组件 -->
-      <GidCallGraph
-        v-model:visible="showChart"
-        :gid="currentGid"
-        :dbpath="dbPath"
-        :chart-data="chartData"
-        @error="handleChartError"
-      />
+
 
       <!-- 调用链路模态框 -->
       <CallChainModal
@@ -244,17 +290,17 @@
 <script>
 import { useI18n } from 'vue-i18n';
 import { ref, computed } from 'vue';
-import axios from 'axios';
-import GidCallGraph from './GidCallGraph.vue';
 import CallChainModal from './CallChainModal.vue';
 import FunctionAnalysis from './FunctionAnalysis.vue';
+import ModuleSelector from './ModuleSelector.vue';
+import { formatFunctionName } from '../utils/functionNameUtils.js';
 
 export default {
   name: 'RuntimeAnalysis',
   components: {
-    GidCallGraph,
     CallChainModal,
-    FunctionAnalysis
+    FunctionAnalysis,
+    ModuleSelector
   },
   props: {
     projectPath: {
@@ -264,9 +310,6 @@ export default {
   },
   setup(props) {
     const { t, locale } = useI18n({ useScope: 'global' });
-    const currentGid = ref(0);
-    const showChart = ref(false);
-    const chartData = ref(null);
     const dbPath = computed(() => props.projectPath || '');
     const message = ref({
       show: false,
@@ -296,29 +339,12 @@ export default {
       }, duration);
     };
 
-    // 查看函数调用链
-    const viewFunctionCallChain = (gid) => {
-      currentGid.value = Number(gid);
-      showChart.value = true;
-    };
-
-    // 处理图表错误
-    const handleChartError = (error) => {
-      showMessage(`图表加载失败: ${error.message}`, 'error');
-      showChart.value = false;
-    };
-
     return {
       t,
       locale,
-      currentGid,
-      showChart,
-      chartData,
       dbPath,
       message,
-      showMessage,
-      viewFunctionCallChain,
-      handleChartError
+      showMessage
     };
   },
   data() {
@@ -367,9 +393,6 @@ export default {
     window.addEventListener('languageChanged', this.handleLanguageChange);
   },
   beforeUnmount() {
-    // 确保在组件卸载前关闭图表
-    this.showChart = false;
-    
     this.isComponentMounted = false;
     
     document.removeEventListener('click', this.handleDocumentClick);
@@ -600,7 +623,7 @@ export default {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            limit: this.hotFunctionLimit,
+            limit: 10,
             sortBy: this.hotFunctionSortBy,
             dbpath: dbpath
           })
@@ -705,96 +728,38 @@ export default {
       this.showFunctionSuggestions = false;
     },
     
-    // 显示函数调用关系图
-    async showFunctionCallGraph(gid) {
-      try {
-        // 保存当前滚动位置
-        const scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
-        
-        this.currentGid = gid;
-        // 先设置showChart为true，确保模态框开始显示
-        this.showChart = true;
-        this.chartData = null; // 清空旧数据
-        
-        // 获取函数调用链数据
-        const [treeResponse, traceResponse] = await Promise.all([
-          axios.post('/api/runtime/tree-graph/gid', {
-            dbPath: this.getCurrentDbPath(),
-            gid: gid
-          }),
-          axios.post(`/api/runtime/traces/${gid}`, {
-            dbpath: this.getCurrentDbPath()
-          })
-        ]);
-        
-        const treeData = treeResponse.data;
-        const traceData = traceResponse.data;
-        
-        if (!treeData || !treeData.trees || !traceData || !traceData.traceData) {
-          throw new Error('返回的数据格式不正确');
-        }
-        
-        // 创建函数ID到执行时间的映射
-        const executionTimeMap = {};
-        traceData.traceData.forEach(trace => {
-          if (trace.id && trace.timeCost) {
-            executionTimeMap[trace.id] = trace.timeCost;
-          }
-        });
-        
-        // 递归添加执行时间到树节点
-        const addExecutionTime = (node) => {
-          if (!node) return;
-          
-          // 添加执行时间
-          if (node.value && executionTimeMap[node.value]) {
-            node.executionTime = executionTimeMap[node.value];
-          }
-          
-          // 递归处理子节点
-          if (Array.isArray(node.children)) {
-            node.children.forEach(child => addExecutionTime(child));
-          }
-        };
-        
-        // 处理所有树
-        treeData.trees.forEach(tree => addExecutionTime(tree));
-        
-        // 确保每棵树都是一个独立的数据结构
-        const processedTreeData = treeData.trees.map(tree => {
-          // 处理树节点，确保数据格式正确
-          return {
-            name: tree.name || 'Root',
-            value: tree.value || '',
-            children: tree.children || [],
-            executionTime: tree.executionTime || null
-          };
-        });
-        
-        // 更新图表数据
-        // 延迟设置图表数据，确保模态框已经显示
-        setTimeout(() => {
-          this.chartData = processedTreeData;
-        }, 200);
-
-        // 监听模态框关闭事件
-        const handleModalHidden = () => {
-          // 恢复滚动位置
-          setTimeout(() => {
-            window.scrollTo(0, scrollPosition);
-          }, 100);
-        };
-
-        // 添加一次性事件监听
-        const modal = document.querySelector('.modal');
-        if (modal) {
-          modal.addEventListener('hidden.bs.modal', handleModalHidden, { once: true });
-        }
-      } catch (error) {
-        this.showMessage(`获取调用链数据失败: ${error.message}`, 'error');
-        this.showChart = false;
+    // 格式化函数名称（根据选中的module进行简化）
+    formatFunctionName(functionName) {
+      // 从localStorage获取当前数据库的module设置
+      const dbPath = this.getCurrentDbPath();
+      let currentModule = '';
+      if (dbPath) {
+        const storageKey = `runtime_analysis_module_${dbPath}`;
+        currentModule = localStorage.getItem(storageKey) || '';
       }
+      return formatFunctionName(functionName, currentModule);
     },
+    
+    // 处理module选择变化
+    handleModuleChange(module) {
+      console.log('Module changed to:', module);
+      
+      // 保存module选择到localStorage（以数据库名称作为key）
+      const dbPath = this.getCurrentDbPath();
+      if (dbPath) {
+        const storageKey = `runtime_analysis_module_${dbPath}`;
+        if (module) {
+          localStorage.setItem(storageKey, module);
+        } else {
+          localStorage.removeItem(storageKey);
+        }
+      }
+      
+      // 强制刷新页面以重新获取原始数据
+      window.location.reload();
+    },
+    
+
 
 
 

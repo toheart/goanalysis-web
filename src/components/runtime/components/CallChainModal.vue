@@ -1,57 +1,66 @@
 <template>
   <div class="modal fade" :class="{ show: visible }" :style="{ display: visible ? 'block' : 'none' }" tabindex="-1" aria-labelledby="callChainModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
-      <div class="modal-content">
-        <div class="modal-header">
+      <div class="modal-content shadow">
+        <div class="modal-header bg-gradient-primary text-white">
           <h5 class="modal-title" id="callChainModalLabel">
             <i class="bi bi-diagram-3 me-2"></i>
             Goroutine #{{ gid || 'N/A' }} 调用链路详情
+            <small class="ms-2 opacity-75">(调用链分析)</small>
           </h5>
-          <button type="button" class="btn-close" @click="closeModal" aria-label="Close"></button>
+          <button type="button" class="btn-close btn-close-white" @click="closeModal" aria-label="Close"></button>
         </div>
         
         <div class="modal-body">
           <!-- 基本信息 -->
           <div class="row mb-4">
             <div class="col-md-6">
-              <div class="card border-0 bg-light">
+              <div class="card border-0 bg-light shadow-sm">
                 <div class="card-body">
-                  <h6 class="card-title text-muted mb-2">基本信息</h6>
+                  <h6 class="card-title text-muted mb-2">
+                    <i class="bi bi-info-circle me-1"></i>基本信息
+                  </h6>
                   <div class="d-flex justify-content-between mb-1">
                     <span class="text-muted">Goroutine ID:</span>
-                    <span class="badge bg-primary">{{ gid || 'N/A' }}</span>
+                    <span class="badge bg-primary rounded-pill">#{{ gid || 'N/A' }}</span>
                   </div>
                   <div class="d-flex justify-content-between mb-1">
                     <span class="text-muted">初始函数:</span>
-                    <code class="text-truncate" style="max-width: 200px;">{{ initialFunc }}</code>
+                    <code class="function-name text-truncate" style="max-width: 200px;">{{ formatFunctionName(initialFunc) }}</code>
                   </div>
                   <div class="d-flex justify-content-between mb-1">
                     <span class="text-muted">调用深度:</span>
-                    <span class="badge bg-info">{{ depth || '-' }}</span>
+                    <span class="depth-badge">{{ depth || '-' }}</span>
                   </div>
                   <div class="d-flex justify-content-between">
                     <span class="text-muted">执行时间:</span>
-                    <span class="badge bg-secondary">{{ executionTime || '-' }}</span>
+                    <span class="time-badge execution-time">{{ executionTime || '-' }}</span>
                   </div>
                 </div>
               </div>
             </div>
             <div class="col-md-6">
-              <div class="card border-0 bg-light">
+              <div class="card border-0 bg-light shadow-sm">
                 <div class="card-body">
-                  <h6 class="card-title text-muted mb-2">状态信息</h6>
+                  <h6 class="card-title text-muted mb-2">
+                    <i class="bi bi-gear me-1"></i>状态信息
+                  </h6>
                   <div class="d-flex justify-content-between mb-1">
                     <span class="text-muted">当前状态:</span>
-                    <span v-if="isFinished" class="badge bg-success">已完成</span>
-                    <span v-else class="badge bg-warning">运行中</span>
+                    <span v-if="isFinished" class="badge bg-success rounded-pill">
+                      <i class="bi bi-check-circle me-1"></i>已完成
+                    </span>
+                    <span v-else class="badge bg-warning rounded-pill">
+                      <i class="bi bi-play-circle me-1"></i>运行中
+                    </span>
                   </div>
                   <div class="d-flex justify-content-between mb-1">
                     <span class="text-muted">调用链长度:</span>
-                    <span class="badge bg-dark">{{ callChainData.length }}</span>
+                    <span class="badge bg-dark rounded-pill">{{ callChainData.length }}</span>
                   </div>
                   <div class="d-flex justify-content-between">
                     <span class="text-muted">目标函数:</span>
-                    <code class="text-truncate" style="max-width: 200px;">{{ targetFunction }}</code>
+                    <code class="function-name text-truncate" style="max-width: 200px;">{{ formatFunctionName(targetFunction) }}</code>
                   </div>
                 </div>
               </div>
@@ -59,11 +68,12 @@
           </div>
 
           <!-- 调用链路详情 -->
-          <div class="card">
-            <div class="card-header">
+          <div class="card shadow-sm">
+            <div class="card-header bg-gradient-info text-white">
               <h6 class="mb-0">
                 <i class="bi bi-arrow-right-circle me-2"></i>
                 完整调用链路
+                <small class="ms-2 opacity-75">({{ callChainData.length }} 层)</small>
               </h6>
             </div>
             <div class="card-body p-0">
@@ -112,7 +122,7 @@
                           <span class="function-type-badge target" v-if="func === targetFunction">目标</span>
                         </div>
                         <div class="function-name">
-                          <code>{{ func }}</code>
+                          <code>{{ formatFunctionName(func) }}</code>
                         </div>
                         <div class="function-details" v-if="funcDetails[func]">
                           <small class="text-muted">
@@ -135,11 +145,21 @@
                   <table class="table table-sm table-hover mb-0">
                     <thead class="table-light">
                       <tr>
-                        <th style="width: 60px">#</th>
-                        <th>函数名称</th>
-                        <th style="width: 100px">类型</th>
-                        <th style="width: 120px">执行时间</th>
-                        <th style="width: 100px">操作</th>
+                        <th class="border-0" style="width: 60px">
+                          <i class="bi bi-hash me-1"></i>#
+                        </th>
+                        <th class="border-0">
+                          <i class="bi bi-code-slash me-1"></i>函数名称
+                        </th>
+                        <th class="border-0" style="width: 100px">
+                          <i class="bi bi-tag me-1"></i>类型
+                        </th>
+                        <th class="border-0" style="width: 120px">
+                          <i class="bi bi-stopwatch me-1"></i>执行时间
+                        </th>
+                        <th class="border-0" style="width: 100px">
+                          <i class="bi bi-gear me-1"></i>操作
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -152,19 +172,15 @@
                         }"
                       >
                         <td>
-                          <span class="badge" :class="{
-                            'bg-primary': index === 0,
-                            'bg-success': func === targetFunction,
-                            'bg-secondary': index !== 0 && func !== targetFunction
-                          }">{{ index + 1 }}</span>
+                          <span class="rank-badge">{{ index + 1 }}</span>
                         </td>
                         <td>
-                          <code class="text-break">{{ func }}</code>
+                          <code class="function-name text-break">{{ func }}</code>
                         </td>
                         <td>
-                          <span v-if="index === 0" class="badge bg-primary">初始函数</span>
-                          <span v-else-if="func === targetFunction" class="badge bg-success">目标函数</span>
-                          <span v-else class="badge bg-secondary">中间函数</span>
+                          <span v-if="index === 0" class="badge bg-primary rounded-pill">初始函数</span>
+                          <span v-else-if="func === targetFunction" class="badge bg-success rounded-pill">目标函数</span>
+                          <span v-else class="badge bg-secondary rounded-pill">中间函数</span>
                         </td>
                         <td>
                           <span v-if="funcDetails[func]?.executionTime" class="text-muted">
@@ -179,7 +195,7 @@
                             @click="searchFunction(func)"
                             title="搜索此函数"
                           >
-                            <i class="bi bi-search"></i>
+                            <i class="bi bi-search me-1"></i>搜索
                           </button>
                           <span v-else class="text-success">
                             <i class="bi bi-check-circle"></i>
@@ -195,7 +211,7 @@
         </div>
         
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" @click="closeModal">
+          <button type="button" class="btn btn-outline-secondary" @click="closeModal">
             <i class="bi bi-x-circle me-1"></i>
             关闭
           </button>
@@ -234,6 +250,8 @@
 import { ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from '../../../axios';
+import { formatFunctionName } from '../utils/functionNameUtils.js';
+import { useModuleState } from '../composables/useModuleState.js';
 
 export default {
   name: 'CallChainModal',
@@ -289,6 +307,9 @@ export default {
     const error = ref(null);
     const callChainData = ref([]);
     const funcDetails = ref({});
+    
+    // Module状态管理
+    const { selectedModule } = useModuleState();
     
     // 计算属性
     const closeModal = () => {
@@ -373,7 +394,9 @@ export default {
       callChainData,
       funcDetails,
       closeModal,
-      searchFunction
+      searchFunction,
+      formatFunctionName,
+      selectedModule
     };
   }
 };

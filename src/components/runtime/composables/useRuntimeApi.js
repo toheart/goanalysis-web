@@ -34,7 +34,26 @@ export function useRuntimeApi() {
     }
   };
 
-
+  // 获取module列表
+  const getModuleNames = async (dbPath, maxSamples = 100) => {
+    loading.value = true;
+    error.value = null;
+    
+    try {
+      const response = await axios.post('/api/runtime/modules', {
+        dbpath: dbPath,
+        maxSamples: maxSamples
+      });
+      
+      return response.data?.moduleNames || [];
+    } catch (err) {
+      error.value = err;
+      console.error('获取module列表失败:', err);
+      return [];
+    } finally {
+      loading.value = false;
+    }
+  };
 
   // 获取调用统计数据
   const getCallStats = async (dbPath, functionName) => {
@@ -58,6 +77,7 @@ export function useRuntimeApi() {
     loading,
     error,
     getFunctions,
+    getModuleNames,
     getCallStats
   };
 } 

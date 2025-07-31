@@ -251,4 +251,111 @@
   .stat-label {
     color: #a0aec0;
   }
+}
+
+/* 新增的UI增强样式 */
+
+/* 渐变背景 */
+.bg-gradient-primary {
+  background: linear-gradient(135deg, #3498db, #2980b9) !important;
+}
+
+.bg-gradient-info {
+  background: linear-gradient(135deg, #17a2b8, #138496) !important;
+}
+
+/* 排名徽章 */
+.rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: linear-gradient(135deg, #3498db, #2980b9);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* 函数名样式 */
+.function-name {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.9rem;
+  color: #2c3e50;
+  background-color: rgba(52, 152, 219, 0.1);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  border-left: 3px solid #3498db;
+}
+
+/* 深度徽章 */
+.depth-badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  background-color: rgba(155, 89, 182, 0.1);
+  color: #9b59b6;
+  border: 1px solid rgba(155, 89, 182, 0.2);
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+/* 时间徽章 */
+.time-badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.execution-time {
+  background-color: rgba(46, 204, 113, 0.1);
+  color: #2ecc71;
+  border: 1px solid rgba(46, 204, 113, 0.2);
+}
+
+/* 卡片阴影增强 */
+.shadow-sm {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* 模态框样式增强 */
+.modal-content.shadow {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* 按钮样式增强 */
+.btn-outline-secondary {
+  border-width: 1.5px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn-outline-secondary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(108, 117, 125, 0.3);
+}
+
+/* 表格头部图标样式 */
+.table thead th i {
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+
+/* 响应式优化 */
+@media (max-width: 768px) {
+  .function-name {
+    font-size: 0.8rem;
+  }
+  
+  .time-badge {
+    font-size: 0.75rem;
+  }
+  
+  .depth-badge {
+    font-size: 0.75rem;
+  }
 } 

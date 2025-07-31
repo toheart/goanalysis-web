@@ -366,6 +366,25 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/analysis.v1.InstrumentProjectReply'
+    /api/runtime/modules:
+        post:
+            tags:
+                - Analysis
+            description: GetModuleNames 获取数据库中的模块名称列表
+            operationId: Analysis_GetModuleNames
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/analysis.v1.GetModuleNamesReq'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/analysis.v1.GetModuleNamesReply'
     /api/runtime/params/{id}:
         post:
             tags:
@@ -1150,6 +1169,23 @@ components:
                 dbpath:
                     type: string
             description: GetHotFunctionsReq 获取热点函数的请求
+        analysis.v1.GetModuleNamesReply:
+            type: object
+            properties:
+                moduleNames:
+                    type: array
+                    items:
+                        type: string
+            description: GetModuleNamesReply 获取模块名称响应
+        analysis.v1.GetModuleNamesReq:
+            type: object
+            properties:
+                dbpath:
+                    type: string
+                maxSamples:
+                    type: integer
+                    format: int32
+            description: GetModuleNamesReq 获取模块名称请求
         analysis.v1.GetParamsByIDReply:
             type: object
             properties:
