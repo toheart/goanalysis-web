@@ -138,75 +138,110 @@
                   </div>
                   
                   <div v-else-if="goroutineData.length > 0" class="table-responsive">
-                    <p class="text-muted mb-2">函数 <strong>{{ selectedFunction.name }}</strong> 在以下 {{ goroutineData.length }} 个Goroutine中存在：</p>
-                    <div class="alert alert-info mb-3">
-                      <i class="bi bi-info-circle me-2"></i>
-                      <small>
-                        调用链路显示从初始函数到当前函数的完整调用路径。"..."表示中间可能存在其他调用，但详细信息不可用。
-                        点击"查看详情"可以跳转到对应的Goroutine调用链，并自动定位到当前函数位置。
-                      </small>
+                    <div class="goroutine-summary mb-4">
+                      <div class="row align-items-center">
+                        <div class="col">
+                          <h6 class="mb-1">函数分布概览</h6>
+                          <p class="text-muted mb-0">
+                            函数 <code class="text-primary">{{ selectedFunction.name }}</code> 在 
+                            <span class="badge bg-primary mx-1">{{ goroutineData.length }}</span> 
+                            个Goroutine中被调用
+                          </p>
+                        </div>
+                        <div class="col-auto">
+                          <div class="stats-badges">
+                            <span class="badge bg-success me-2">
+                              <i class="bi bi-check-circle me-1"></i>
+                              {{ goroutineData.filter(g => g.isFinished).length }} 已完成
+                            </span>
+                            <span class="badge bg-warning">
+                              <i class="bi bi-clock me-1"></i>
+                              {{ goroutineData.filter(g => !g.isFinished).length }} 运行中
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <table class="table table-hover">
-                      <thead>
-                        <tr>
-                          <th scope="col">#</th>
-                          <th scope="col">Goroutine ID</th>
-                          <th scope="col">初始函数</th>
-                          <th scope="col">调用链路</th>
-                          <th scope="col">调用深度</th>
-                          <th scope="col">执行时间</th>
-                          <th scope="col">状态</th>
-                          <th scope="col">操作</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr v-for="(goroutine, index) in goroutineData" :key="goroutine.gid">
-                          <td>{{ index + 1 }}</td>
-                          <td><span class="badge bg-primary">{{ goroutine.gid }}</span></td>
-                          <td><code>{{ goroutine.initialFunc }}</code></td>
-                          <td>
-                            <div v-if="goroutine.callChain" class="call-chain">
-                              <span v-for="(func, chainIndex) in goroutine.callChain" :key="chainIndex">
-                                <span class="function-link">{{ func }}</span>
-                                <i v-if="chainIndex < goroutine.callChain.length - 1" class="bi bi-arrow-right mx-1 text-muted"></i>
-                              </span>
-                            </div>
-                            <div v-else-if="callChainLoading" class="text-muted">
-                              <div class="d-flex align-items-center">
-                                <div class="spinner-border spinner-border-sm me-2" role="status">
-                                  <span class="visually-hidden">加载中...</span>
-                                </div>
-                                <small>获取调用链路...</small>
+
+                    <div class="modern-table-container">
+                      <table class="table table-hover modern-table">
+                        <thead>
+                          <tr>
+                            <th scope="col" class="text-center" style="width: 60px;">#</th>
+                            <th scope="col" class="text-center" style="width: 120px;">Goroutine ID</th>
+                            <th scope="col">初始函数</th>
+                            <th scope="col" class="text-center" style="width: 100px;">调用深度</th>
+                            <th scope="col" class="text-center" style="width: 120px;">执行时间</th>
+                            <th scope="col" class="text-center" style="width: 100px;">状态</th>
+                            <th scope="col" class="text-center" style="width: 180px;">操作</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr v-for="(goroutine, index) in goroutineData" :key="goroutine.gid" class="goroutine-row">
+                            <td class="text-center">
+                              <span class="row-number">{{ index + 1 }}</span>
+                            </td>
+                            <td class="text-center">
+                              <span class="badge bg-gradient-primary goroutine-badge">{{ goroutine.gid }}</span>
+                            </td>
+                            <td>
+                              <div class="function-info">
+                                <code class="function-name">{{ goroutine.initialFunc }}</code>
+                                <small class="text-muted d-block">初始调用函数</small>
                               </div>
-                            </div>
-                            <div v-else class="text-muted">
-                              <small>暂无调用链路信息</small>
-                            </div>
-                          </td>
-                          <td><span class="badge bg-info">{{ goroutine.depth || '-' }}</span></td>
-                          <td><span class="badge bg-secondary">{{ goroutine.executionTime || '-' }}</span></td>
-                          <td>
-                            <span v-if="goroutine.isFinished" class="badge bg-success">已完成</span>
-                            <span v-else class="badge bg-warning">运行中</span>
-                          </td>
-                          <td>
-                            <div class="btn-group">
-                              <router-link 
-                                :to="{ 
-                                  name: 'TraceDetails', 
-                                  params: { gid: goroutine.gid },
-                                  query: { highlight: selectedFunction.id }
-                                }" 
-                                class="btn btn-sm btn-primary"
-                                title="查看详情并定位到函数"
-                              >
-                                <i class="bi bi-eye"></i> 查看详情
-                              </router-link>
-                            </div>
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
+                            </td>
+                            <td class="text-center">
+                              <span class="metric-badge depth-badge">
+                                <i class="bi bi-layers me-1"></i>
+                                {{ goroutine.depth || '-' }}
+                              </span>
+                            </td>
+                            <td class="text-center">
+                              <span class="metric-badge time-badge">
+                                <i class="bi bi-stopwatch me-1"></i>
+                                {{ goroutine.executionTime || '-' }}
+                              </span>
+                            </td>
+                            <td class="text-center">
+                              <span v-if="goroutine.isFinished" class="status-badge status-finished">
+                                <i class="bi bi-check-circle me-1"></i>已完成
+                              </span>
+                              <span v-else class="status-badge status-running">
+                                <i class="bi bi-play-circle me-1"></i>运行中
+                              </span>
+                            </td>
+                            <td class="text-center">
+                              <div class="action-buttons">
+                                <router-link 
+                                  :to="{ 
+                                    name: 'TraceDetails', 
+                                    params: { gid: goroutine.gid },
+                                    query: { 
+                                      highlight: goroutine.functionId || selectedFunction?.id || selectedFunction?.name,
+                                      highlightId: goroutine.functionId || selectedFunction?.id,
+                                      functionName: selectedFunction?.name
+                                    }
+                                  }" 
+                                  class="btn btn-sm btn-primary action-btn"
+                                  title="查看详细执行流程"
+                                >
+                                  <i class="bi bi-eye"></i>
+                                  <span class="btn-text">详情</span>
+                                </router-link>
+                                <button 
+                                  class="btn btn-sm btn-success action-btn"
+                                  @click="showCallChain(goroutine)"
+                                  title="查看完整调用链路"
+                                >
+                                  <i class="bi bi-diagram-3"></i>
+                                  <span class="btn-text">链路</span>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                   
                   <div v-else class="alert alert-info">
@@ -234,6 +269,20 @@
         <span class="visually-hidden">{{ t('common.loading') }}</span>
       </div>
     </div>
+
+    <!-- 调用链路模态框 -->
+    <CallChainModal
+      v-model:visible="showCallChainModal"
+      :gid="currentCallChainGoroutine?.gid"
+      :initial-func="currentCallChainGoroutine?.initialFunc"
+      :depth="currentCallChainGoroutine?.depth"
+      :execution-time="currentCallChainGoroutine?.executionTime"
+      :is-finished="currentCallChainGoroutine?.isFinished"
+      :call-chain="currentCallChainGoroutine?.callChain"
+      :target-function="selectedFunction?.name"
+      :target-function-id="currentCallChainGoroutine?.functionId"
+      :db-path="currentDbPath"
+    />
   </div>
 </template>
 
@@ -242,9 +291,14 @@ import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import axios from '../../../axios';
 import debounce from 'lodash/debounce';
+import CallChainModal from './CallChainModal.vue';
 
 export default {
   name: 'FunctionAnalysis',
+  
+  components: {
+    CallChainModal
+  },
   
   setup() {
     const { t } = useI18n();
@@ -264,6 +318,10 @@ export default {
       maxTime: 0
     });
     const callChainLoading = ref(false);
+
+    // CallChainModal相关
+    const showCallChainModal = ref(false);
+    const currentCallChainGoroutine = ref(null);
 
     const filteredItems = computed(() => {
       return items.value;
@@ -364,7 +422,7 @@ export default {
     const selectItem = (item) => {
       searchQuery.value = item.name;
       selectedFunction.value = {
-        id: item.id,
+        id: null, // search接口不返回id字段，会从gids接口获取
         name: item.name,
         package: item.package
       };
@@ -392,39 +450,46 @@ export default {
           if (goroutineResponse.data && goroutineResponse.data.body) {
             goroutineData.value = goroutineResponse.data.body;
             
-            // 如果没有函数ID，尝试获取
-            if (!selectedFunction.value.id && goroutineData.value.length > 0) {
-              try {
-                const searchResponse = await axios.post('/api/runtime/functions/search', {
-                  dbpath: currentDbPath.value,
-                  query: functionName,
-                  limit: 1
-                });
-                
-                if (searchResponse.data && searchResponse.data.functions && searchResponse.data.functions.length > 0) {
-                  const functionId = searchResponse.data.functions[0].id;
-                  selectedFunction.value.id = functionId;
-                }
-              } catch (error) {
-                console.error('获取函数ID失败:', error);
-              }
-            }
+            // 打印所有Goroutine的functionId用于调试
+            console.log('获取到的Goroutine数据:', goroutineData.value.map(g => ({
+              gid: g.gid,
+              functionId: g.functionId,
+              initialFunc: g.initialFunc
+            })));
             
-            // 为每个Goroutine获取调用链路信息
-            if (selectedFunction.value.id && goroutineData.value.length > 0) {
-              callChainLoading.value = true;
+            // 不再设置全局的selectedFunction.value.id，每个Goroutine使用自己的functionId
+          }
+        } catch (error) {
+          console.error('获取函数在Goroutine中的分布失败:', error);
+        }
+        
+        // 为每个Goroutine获取调用链路信息
+        if (goroutineData.value.length > 0) {
+          callChainLoading.value = true;
+          console.log('准备为每个Goroutine获取调用链路信息');
+          
+          // 为每个Goroutine获取调用链路信息
+          await Promise.all(goroutineData.value.map(async (goroutine) => {
+            try {
+              // 首先为每个goroutine设置默认调用链路
+              goroutine.callChain = [goroutine.initialFunc, selectedFunction.value.name];
               
-              // 为每个Goroutine获取调用链路信息
-              await Promise.all(goroutineData.value.map(async (goroutine) => {
+              console.log(`为Goroutine ${goroutine.gid} 获取调用链路详情，functionId: ${goroutine.functionId}`);
+              
+              // 只有在Goroutine有自己的functionId时才调用info接口
+              if (goroutine.functionId) {
+                console.log(`使用Goroutine自己的functionId ${goroutine.functionId} 调用info接口`);
                 try {
                   const functionInfoResponse = await axios.post('/api/runtime/function/info', {
                     dbpath: currentDbPath.value,
                     gid: goroutine.gid,
-                    functionId: selectedFunction.value.id,
+                    functionId: goroutine.functionId,
                     currentDepth: goroutine.depth || 3
                   });
                   
-                  if (functionInfoResponse.data && functionInfoResponse.data.functionInfo) {
+                  console.log(`Goroutine ${goroutine.gid} (functionId: ${goroutine.functionId}) 调用链路响应:`, functionInfoResponse?.data);
+                  
+                  if (functionInfoResponse?.data?.functionInfo) {
                     const functionInfo = functionInfoResponse.data.functionInfo;
                     
                     // 构建调用链路：从初始函数到当前函数
@@ -442,11 +507,8 @@ export default {
                       
                       // 直接使用API返回的父函数名称
                       sortedParents.forEach((parent) => {
-                        if (parent.name) {
+                        if (parent.name && parent.name !== goroutine.initialFunc) {
                           callChain.push(parent.name);
-                        } else {
-                          // 如果父函数没有名称，使用占位符
-                          callChain.push(`父函数${parent.depth}`);
                         }
                       });
                     } else {
@@ -457,21 +519,33 @@ export default {
                     }
                     
                     // 添加当前函数
-                    callChain.push(selectedFunction.value.name);
+                    if (!callChain.includes(selectedFunction.value.name)) {
+                      callChain.push(selectedFunction.value.name);
+                    }
                     
                     goroutine.callChain = callChain;
+                    console.log(`Goroutine ${goroutine.gid} 调用链路构建完成:`, callChain);
+                  } else {
+                    console.log(`Goroutine ${goroutine.gid} 没有返回有效的函数信息，使用默认调用链路`);
                   }
                 } catch (error) {
-                  console.error(`获取Goroutine ${goroutine.gid} 的调用链路失败:`, error);
-                  goroutine.callChain = [goroutine.initialFunc, selectedFunction.value.name];
+                  console.error(`Goroutine ${goroutine.gid} 调用info接口失败:`, error);
+                  // 保持默认的调用链路
                 }
-              }));
+              } else {
+                console.log(`Goroutine ${goroutine.gid} 没有functionId，使用默认调用链路`);
+                // 保持默认的调用链路
+              }
               
-              callChainLoading.value = false;
+            } catch (error) {
+              console.error(`获取Goroutine ${goroutine.gid} 的调用链路失败:`, error);
+              // 确保即使出错也有基本的调用链路
+              goroutine.callChain = [goroutine.initialFunc, selectedFunction.value.name].filter(Boolean);
             }
-          }
-        } catch (error) {
-          console.error('获取函数在Goroutine中的分布失败:', error);
+          }));
+          
+          callChainLoading.value = false;
+          console.log('所有调用链路获取完成');
         }
         
         try {
@@ -516,27 +590,12 @@ export default {
       hideDropdown();
       
       selectedFunction.value = {
-        id: null,
+        id: null, // 不从search接口获取id，会从gids接口中的functionId获取
         name: searchQuery.value,
         package: ''
       };
       
-      // 先尝试获取函数ID
-      try {
-        const searchResponse = await axios.post('/api/runtime/functions/search', {
-          dbpath: currentDbPath.value,
-          query: searchQuery.value,
-          limit: 1
-        });
-        
-        if (searchResponse.data && searchResponse.data.functions && searchResponse.data.functions.length > 0) {
-          const functionId = searchResponse.data.functions[0].id;
-          selectedFunction.value.id = functionId;
-        }
-      } catch (error) {
-        console.error('获取函数ID失败:', error);
-      }
-      
+      // 直接分析函数详情，functionId会从gids接口获取
       analyzeFunctionDetails(searchQuery.value);
     };
 
@@ -584,6 +643,12 @@ export default {
       return timeNum.toFixed(1);
     };
 
+    // 显示调用链路详情
+    const showCallChain = (goroutine) => {
+      currentCallChainGoroutine.value = goroutine;
+      showCallChainModal.value = true;
+    };
+
     return {
       currentDbPath,
       searchQuery,
@@ -606,7 +671,10 @@ export default {
       formatTime,
       t,
       goroutineData,
-      callChainLoading
+      callChainLoading,
+      showCallChainModal,
+      currentCallChainGoroutine,
+      showCallChain
     };
   }
 };
@@ -861,6 +929,237 @@ export default {
   .function-link:hover {
     background-color: rgba(91, 154, 255, 0.25);
     color: #7bb3ff;
+  }
+}
+
+/* 现代化表格样式 */
+.goroutine-summary {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  padding: 1.5rem;
+  border-radius: 12px;
+  border: 1px solid #e1e5e9;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.goroutine-summary h6 {
+  color: #495057;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.stats-badges .badge {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.modern-table-container {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  border: 1px solid #e1e5e9;
+}
+
+.modern-table {
+  margin-bottom: 0;
+  font-size: 0.9rem;
+}
+
+.modern-table thead th {
+  background: linear-gradient(135deg, #495057 0%, #6c757d 100%);
+  color: white;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.5px;
+  padding: 1rem 0.75rem;
+  border: none;
+  position: relative;
+}
+
+.modern-table thead th::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #007bff, #0056b3);
+}
+
+.goroutine-row {
+  transition: all 0.2s ease;
+  border-bottom: 1px solid #f1f3f4;
+}
+
+.goroutine-row:hover {
+  background: linear-gradient(135deg, rgba(0, 123, 255, 0.02) 0%, rgba(0, 123, 255, 0.05) 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.1);
+}
+
+.goroutine-row td {
+  padding: 1rem 0.75rem;
+  vertical-align: middle;
+  border: none;
+}
+
+.row-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #6c757d, #495057);
+  color: white;
+  border-radius: 50%;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.goroutine-badge {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #007bff, #0056b3) !important;
+  box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+  border: none;
+}
+
+.function-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.function-name {
+  background: rgba(0, 123, 255, 0.08);
+  color: #0056b3;
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border: 1px solid rgba(0, 123, 255, 0.2);
+  display: inline-block;
+  word-break: break-all;
+}
+
+.metric-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.depth-badge {
+  background: linear-gradient(135deg, #17a2b8, #138496);
+  color: white;
+}
+
+.time-badge {
+  background: linear-gradient(135deg, #6c757d, #545b62);
+  color: white;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.status-finished {
+  background: linear-gradient(135deg, #28a745, #1e7e34);
+  color: white;
+}
+
+.status-running {
+  background: linear-gradient(135deg, #ffc107, #e0a800);
+  color: #212529;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  border: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.action-btn.btn-primary {
+  background: linear-gradient(135deg, #007bff, #0056b3);
+  border: none;
+}
+
+.action-btn.btn-success {
+  background: linear-gradient(135deg, #28a745, #1e7e34);
+  border: none;
+}
+
+.btn-text {
+  font-size: 0.75rem;
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+  .goroutine-summary {
+    background: linear-gradient(135deg, #2d2d2d 0%, #3d3d3d 100%);
+    border-color: #444;
+    color: #e1e1e1;
+  }
+  
+  .goroutine-summary h6 {
+    color: #e1e1e1;
+  }
+  
+  .modern-table-container {
+    background: #2d2d2d;
+    border-color: #444;
+  }
+  
+  .modern-table {
+    color: #e1e1e1;
+  }
+  
+  .goroutine-row {
+    border-bottom-color: #444;
+  }
+  
+  .goroutine-row:hover {
+    background: linear-gradient(135deg, rgba(91, 154, 255, 0.05) 0%, rgba(91, 154, 255, 0.1) 100%);
+  }
+  
+  .function-name {
+    background: rgba(91, 154, 255, 0.15);
+    color: #7bb3ff;
+    border-color: rgba(91, 154, 255, 0.3);
   }
 }
 </style> 

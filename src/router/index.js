@@ -5,7 +5,6 @@ import StaticAnalysis from '../components/callgraph/StaticAnalysis.vue';
 import DbAnalysisDetail from '../components/callgraph/DbAnalysisDetail.vue';
 import WelcomePage from '../components/Welcome.vue';
 import RuntimeAnalysis from '../components/runtime/components/RuntimeAnalysis.vue';
-import FunctionAnalysis from '../components/runtime/components/FunctionAnalysis.vue';
 import SetLanguage from '../components/Language.vue';
 
 const routes = [
@@ -25,11 +24,6 @@ const routes = [
         name: 'RuntimeAnalysis',
         component: RuntimeAnalysis,
         props: true
-      },
-      {
-        path: '/function-analysis',
-        name: 'FunctionAnalysis',
-        component: FunctionAnalysis,
       }
     ]
   },

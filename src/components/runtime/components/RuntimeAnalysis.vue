@@ -175,21 +175,53 @@
         </div>
         <div class="card-footer">
           <!-- 分页控件 -->
-          <nav aria-label="Page navigation">
-            <ul class="pagination justify-content-center mb-0">
-              <li class="page-item" :class="{ disabled: currentPage <= 1 }">
-                <a class="page-link" href="#" @click.prevent="prevPage">{{ $t('runtimeAnalysis.goroutineList.prevPage') }}</a>
-              </li>
-              <li v-for="page in displayedPages" :key="page" class="page-item" :class="{ active: page === currentPage }">
-                <a class="page-link" href="#" @click.prevent="goToPage(page)">{{ page }}</a>
-              </li>
-              <li class="page-item" :class="{ disabled: currentPage >= totalPages }">
-                <a class="page-link" href="#" @click.prevent="nextPage">{{ $t('runtimeAnalysis.goroutineList.nextPage') }}</a>
-              </li>
-            </ul>
-          </nav>
+          <div class="d-flex justify-content-between align-items-center">
+            <!-- 分页信息 -->
+            <div class="text-muted small">
+              显示 {{ (currentPage - 1) * limit + 1 }} - {{ Math.min(currentPage * limit, total) }} 条，共 {{ total }} 条
+              <span v-if="totalPages > 1" class="ms-2">（共 {{ totalPages }} 页）</span>
+            </div>
+            
+            <!-- 分页导航 -->
+            <nav aria-label="Page navigation">
+              <ul class="pagination mb-0">
+                <li class="page-item" :class="{ disabled: currentPage <= 1 }">
+                  <a class="page-link" href="#" @click.prevent="goToPage(1)" title="首页">
+                    <i class="bi bi-chevron-double-left"></i>
+                  </a>
+                </li>
+                <li class="page-item" :class="{ disabled: currentPage <= 1 }">
+                  <a class="page-link" href="#" @click.prevent="prevPage">{{ $t('runtimeAnalysis.goroutineList.prevPage') }}</a>
+                </li>
+                
+                <!-- 显示省略号和页码 -->
+                <li v-if="displayedPages[0] > 1" class="page-item disabled">
+                  <span class="page-link">...</span>
+                </li>
+                <li v-for="page in displayedPages" :key="page" class="page-item" :class="{ active: page === currentPage }">
+                  <a class="page-link" href="#" @click.prevent="goToPage(page)">{{ page }}</a>
+                </li>
+                <li v-if="displayedPages[displayedPages.length - 1] < totalPages" class="page-item disabled">
+                  <span class="page-link">...</span>
+                </li>
+                
+                <li class="page-item" :class="{ disabled: currentPage >= totalPages }">
+                  <a class="page-link" href="#" @click.prevent="nextPage">{{ $t('runtimeAnalysis.goroutineList.nextPage') }}</a>
+                </li>
+                <li class="page-item" :class="{ disabled: currentPage >= totalPages }">
+                  <a class="page-link" href="#" @click.prevent="goToPage(totalPages)" title="末页">
+                    <i class="bi bi-chevron-double-right"></i>
+                  </a>
+                </li>
+              </ul>
+            </nav>
+          </div>
         </div>
       </div>
+
+      <!-- 函数分析组件 -->
+      <FunctionAnalysis />
+
 
       <!-- 函数调用关系图组件 -->
       <GidCallGraph
@@ -198,6 +230,12 @@
         :dbpath="dbPath"
         :chart-data="chartData"
         @error="handleChartError"
+      />
+
+      <!-- 调用链路模态框 -->
+      <CallChainModal
+        v-model:visible="showCallChainModal"
+        :call-chain="currentCallChain"
       />
     </div>
   </div>
@@ -208,11 +246,15 @@ import { useI18n } from 'vue-i18n';
 import { ref, computed } from 'vue';
 import axios from 'axios';
 import GidCallGraph from './GidCallGraph.vue';
+import CallChainModal from './CallChainModal.vue';
+import FunctionAnalysis from './FunctionAnalysis.vue';
 
 export default {
   name: 'RuntimeAnalysis',
   components: {
-    GidCallGraph
+    GidCallGraph,
+    CallChainModal,
+    FunctionAnalysis
   },
   props: {
     projectPath: {
@@ -303,7 +345,11 @@ export default {
         maxDepth: 0
       },
 
-      highlightedFunctionId: null
+      highlightedFunctionId: null,
+
+
+      showCallChainModal: false,
+      currentCallChain: []
     };
   },
   mounted() {
@@ -342,10 +388,30 @@ export default {
     displayedPages() {
       const pages = [];
       const maxVisiblePages = 5;
+      
+      // 如果总页数小于等于最大显示页数，显示所有页
+      if (this.totalPages <= maxVisiblePages) {
+        for (let i = 1; i <= this.totalPages; i++) {
+          pages.push(i);
+        }
+        return pages;
+      }
+      
+      // 计算起始和结束页码
       let startPage = Math.max(1, this.currentPage - Math.floor(maxVisiblePages / 2));
       let endPage = Math.min(this.totalPages, startPage + maxVisiblePages - 1);
       
+      // 调整起始页码，确保显示足够的页码
       if (endPage - startPage + 1 < maxVisiblePages) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+      }
+      
+      // 确保当前页在显示范围内
+      if (this.currentPage < startPage) {
+        startPage = Math.max(1, this.currentPage - Math.floor(maxVisiblePages / 2));
+        endPage = Math.min(this.totalPages, startPage + maxVisiblePages - 1);
+      } else if (this.currentPage > endPage) {
+        endPage = Math.min(this.totalPages, this.currentPage + Math.floor(maxVisiblePages / 2));
         startPage = Math.max(1, endPage - maxVisiblePages + 1);
       }
       
@@ -434,8 +500,13 @@ export default {
         
         // 更新数据
         this.gids = data.body || [];
-        this.total = data.total || 0;
-        this.totalPages = Math.ceil(this.total / this.limit) || 1;
+        this.total = parseInt(data.total || '0', 10);
+        this.totalPages = Math.max(1, Math.ceil(this.total / this.limit));
+        
+        // 确保当前页码不超过总页数
+        if (this.currentPage > this.totalPages && this.totalPages > 0) {
+          this.currentPage = this.totalPages;
+        }
         
         // 更新Goroutine统计信息
         this.fetchGoroutineStats();
@@ -495,14 +566,16 @@ export default {
     },
     
     nextPage() {
-      if (this.currentPage < this.totalPages) {
+      // 确保有下一页数据才进行翻页
+      if (this.currentPage < this.totalPages && this.totalPages > 0) {
         this.currentPage++;
         this.fetchGIDs();
       }
     },
     
     goToPage(page) {
-      if (page >= 1 && page <= this.totalPages) {
+      // 确保页码在有效范围内
+      if (page >= 1 && page <= this.totalPages && page !== this.currentPage) {
         this.currentPage = page;
         this.fetchGIDs();
       }
@@ -722,7 +795,8 @@ export default {
         this.showChart = false;
       }
     },
-    
+
+
 
   }
 };
@@ -1034,5 +1108,151 @@ code:hover {
   background-color: rgba(75, 150, 255, 0.05);
   color: var(--primary-color);
   transform: translateX(5px);
+}
+
+/* 分页样式优化 */
+.pagination {
+  margin-bottom: 0;
+}
+
+.pagination .page-link {
+  border-radius: 6px;
+  margin: 0 2px;
+  padding: 0.5rem 0.75rem;
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  background-color: #fff;
+  transition: all 0.2s ease;
+  min-width: 40px;
+  text-align: center;
+}
+
+.pagination .page-link:hover {
+  background-color: rgba(71, 133, 255, 0.1);
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+  transform: translateY(-1px);
+}
+
+.pagination .page-item.active .page-link {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: white;
+  box-shadow: 0 2px 4px rgba(71, 133, 255, 0.3);
+}
+
+.pagination .page-item.disabled .page-link {
+  color: #6c757d;
+  background-color: #f8f9fa;
+  border-color: #dee2e6;
+  cursor: not-allowed;
+}
+
+.pagination .page-item.disabled .page-link:hover {
+  background-color: #f8f9fa;
+  color: #6c757d;
+  transform: none;
+}
+
+/* 分页信息样式 */
+.card-footer .text-muted {
+  font-size: 0.875rem;
+  color: #6c757d;
+}
+
+.card-footer .text-muted .ms-2 {
+  color: var(--primary-color);
+  font-weight: 500;
+}
+
+/* 函数查询相关样式 */
+.search-suggestions-card {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: white;
+  box-shadow: var(--card-shadow);
+  overflow: hidden;
+}
+
+.suggestions-header {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.suggestions-body {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.suggestion-item {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.suggestion-item:hover,
+.suggestion-item.active {
+  background-color: rgba(71, 133, 255, 0.1);
+  color: var(--primary-color);
+}
+
+.suggestion-item .function-icon {
+  color: var(--primary-color);
+  font-size: 1.1em;
+}
+
+.function-card {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: var(--card-shadow);
+}
+
+.function-header {
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  color: white;
+  border-radius: 12px 12px 0 0;
+  border-bottom: none;
+}
+
+.metric-card {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.metric-card .card-title {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.metric-card .display-6 {
+  font-size: 2rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  margin-bottom: 0;
+}
+
+.search-icon {
+  color: var(--primary-color);
+  font-size: 1.2em;
+}
+
+/* 高亮文本样式 */
+mark {
+  background-color: #fff3cd;
+  color: #856404;
+  padding: 0.1em 0.2em;
+  border-radius: 2px;
 }
 </style>
