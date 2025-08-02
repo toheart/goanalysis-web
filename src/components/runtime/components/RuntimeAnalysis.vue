@@ -9,19 +9,6 @@
     <!-- 搜索框 -->
     <div class="search-container mb-4">
       
-      <!-- 函数名建议列表 -->
-      <div class="suggestions-wrapper" v-if="showFunctionSuggestions">
-        <div class="function-suggestions list-group">
-          <button
-            v-for="func in functionSuggestions"
-            :key="func.name"
-            class="list-group-item list-group-item-action"
-            @click="selectFunction(func.name)"
-          >
-            {{ formatFunctionName(func.name) }}
-          </button>
-        </div>
-      </div>
     </div>
     
     <!-- 消息提示组件 -->
@@ -350,9 +337,6 @@ export default {
   data() {
     return {
       functionName: '',
-      filteredFunctionNames: [],
-      showFunctionSuggestions: false,
-      functionNames: [],
       currentPage: 1,
       limit: 10,
       total: 0,
@@ -360,7 +344,6 @@ export default {
       gids: [],
       suggestionsTimer: null,
       isSearching: false,
-      inputPosition: { top: 0, left: 0, width: 0 },
       loading: false,
       showAllGoroutines: false,
       hotFunctions: [],
@@ -386,8 +369,7 @@ export default {
     // 初始化数据
     this.initializeData();
     
-    document.addEventListener('click', this.handleDocumentClick);
-    window.addEventListener('resize', this.updateInputPosition);
+
     
     // 添加语言变化监听
     window.addEventListener('languageChanged', this.handleLanguageChange);
@@ -395,8 +377,7 @@ export default {
   beforeUnmount() {
     this.isComponentMounted = false;
     
-    document.removeEventListener('click', this.handleDocumentClick);
-    window.removeEventListener('resize', this.updateInputPosition);
+
     window.removeEventListener('languageChanged', this.handleLanguageChange);
     
     if (this.suggestionsTimer) {
@@ -477,7 +458,6 @@ export default {
     initializeData() {
       this.fetchGIDs();
       this.fetchHotFunctions();
-      this.fetchFunctionNames();
     },
     
     // 获取当前数据库路径
@@ -655,66 +635,13 @@ export default {
       await this.fetchHotFunctions(); // 重新获取排序后的数据
     },
     
-    // 获取函数名列表（用于自动完成）
-    async fetchFunctionNames() {
-      try {
-        const dbpath = this.getCurrentDbPath();
-        
-        if (!dbpath) {
-          return;
-        }
-        
-        const response = await fetch('/api/runtime/functions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            dbpath: dbpath
-          })
-        });
-        
-        if (!response.ok) {
-          throw new Error(`API request failed: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        // 更新数据
-        this.functionNames = data.functions || [];
-      } catch (error) {
-        this.showMessage(`get function names failed: ${error.message}`, 'error');
-        this.functionNames = [];
-      }
-    },
+
     
 
     
-    // 处理文档点击事件
-    handleDocumentClick(event) {
-      // 如果点击的不是建议列表或输入框，则隐藏建议列表
-      if (this.showFunctionSuggestions) {
-        const suggestions = document.querySelector('.function-suggestions');
-        const input = document.querySelector('#functionNameInput');
-        
-        if (suggestions && input && !suggestions.contains(event.target) && !input.contains(event.target)) {
-          this.showFunctionSuggestions = false;
-        }
-      }
-    },
+
     
-    // 更新输入框位置
-    updateInputPosition() {
-      const input = this.$refs.functionNameInput;
-      if (input) {
-        const rect = input.getBoundingClientRect();
-        this.inputPosition = {
-          top: rect.top,
-          left: rect.left,
-          width: rect.width
-        };
-      }
-    },
+
     
     // 处理语言变化
     handleLanguageChange() {
@@ -722,11 +649,7 @@ export default {
       this.initializeData();
     },
     
-    // 选择函数
-    selectFunction(name) {
-      this.functionName = name;
-      this.showFunctionSuggestions = false;
-    },
+
     
     // 格式化函数名称（根据选中的module进行简化）
     formatFunctionName(functionName) {

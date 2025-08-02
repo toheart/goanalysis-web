@@ -41,6 +41,7 @@
                       :theme="jsonViewerOptions.theme"
                       :show-double-quotes="jsonViewerOptions.showDoubleQuotes"
                       :show-array-index="jsonViewerOptions.showArrayIndex"
+                      :preview-mode="jsonViewerOptions.previewMode"
                     />
                   </div>
                   <!-- 普通文本显示 -->
@@ -101,13 +102,14 @@ export default {
     jsonViewerOptions: {
       type: Object,
       default: () => ({
-        expanded: 2,
+        expanded: 0,
         copyable: true,
         sort: false,
         boxed: true,
         theme: 'jv-light',
         showDoubleQuotes: false,
-        showArrayIndex: true
+        showArrayIndex: true,
+        previewMode: false
       })
     }
   },
