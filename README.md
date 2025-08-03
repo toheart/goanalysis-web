@@ -1,24 +1,162 @@
-# analysis
+# GoAnalysis Web
 
-## Project setup
-```
-npm install --legacy-peer-deps
+一个基于Vue.js的Go程序调用链分析Web界面，提供可视化的函数调用追踪和分析功能。
+
+## 功能特性
+
+### 核心功能
+- **静态分析**: 分析Go程序的函数调用关系
+- **运行时分析**: 追踪程序执行时的函数调用链
+- **调用链可视化**: 以树形结构展示函数调用关系
+- **参数查看**: 查看函数调用的参数信息
+- **高亮功能**: 高亮显示特定的函数调用路径
+
+### 新增功能 - 思维导图生成
+在源码阅读过程中，对于3层及以上的调用层级，新增了**思维导图生成**功能，方便后续做笔记和文档整理。
+
+#### 功能特点：
+- **多格式支持**: 支持Mermaid、Markdown、JSON、纯文本四种格式
+- **一键复制**: 点击按钮即可复制到剪贴板
+- **批量下载**: 可下载包含所有格式的完整数据包
+- **智能构建**: 自动构建从根节点到目标节点的完整调用树
+
+#### 支持的画图工具：
+- **Mermaid格式**: 适用于Mermaid、Draw.io、Obsidian、GitHub等
+- **Markdown格式**: 适用于XMind、MindMeister、Typora等
+- **JSON格式**: 适用于自定义工具和脚本
+- **纯文本格式**: 适用于简单的文本编辑器
+
+#### 使用方法：
+1. 在调用链详情页面，找到3层及以上的函数节点
+2. 点击橙色的思维导图按钮（📊图标）
+3. 在弹出的模态框中选择需要的格式
+4. 点击对应的复制按钮或下载按钮
+
+## 技术栈
+
+- **前端框架**: Vue 3 + Composition API
+- **UI组件**: Bootstrap 5 + Bootstrap Icons
+- **图表库**: ECharts
+- **构建工具**: Vue CLI
+- **HTTP客户端**: Axios
+
+## 安装和运行
+
+### 环境要求
+- Node.js >= 14
+- npm >= 6
+
+### 安装依赖
+```bash
+npm install
 ```
 
-### Compiles and hot-reloads for development
-```
+### 开发模式运行
+```bash
 npm run serve
 ```
 
-### Compiles and minifies for production
-```
+### 生产构建
+```bash
 npm run build
 ```
 
-### Lints and fixes files
+## 项目结构
+
 ```
-npm run lint
+src/
+├── components/
+│   ├── runtime/
+│   │   ├── components/          # 运行时分析组件
+│   │   ├── composables/         # 组合式函数
+│   │   └── utils/              # 工具函数
+│   ├── callgraph/              # 调用图组件
+│   └── common/                 # 通用组件
+├── assets/
+│   └── styles/                 # 样式文件
+├── config/                     # 配置文件
+├── i18n/                       # 国际化
+└── router/                     # 路由配置
 ```
 
-### Customize configuration
-See [Configuration Reference](https://cli.vuejs.org/config/).
+## 配置说明
+
+### API配置
+在 `src/config/api.js` 中配置后端API地址：
+
+```javascript
+export const API_BASE_URL = 'http://localhost:8080';
+```
+
+### 项目路径设置
+首次使用需要在主页设置Go项目的路径，系统会验证路径的有效性。
+
+## 使用指南
+
+### 1. 设置项目路径
+- 访问主页，点击"设置项目路径"
+- 输入Go项目的根目录路径
+- 系统会验证路径并保存
+
+### 2. 静态分析
+- 选择"静态分析"功能
+- 查看函数的调用关系图
+- 支持缩放、拖拽等交互操作
+
+### 3. 运行时分析
+- 选择"运行时分析"功能
+- 输入GID（全局调用ID）
+- 查看详细的调用链信息
+- 使用思维导图功能生成笔记
+
+### 4. 思维导图功能
+- 在调用链中找到3层以上的节点
+- 点击思维导图按钮
+- 选择格式并复制或下载
+
+## 开发指南
+
+### 添加新功能
+1. 在 `src/components/` 下创建新组件
+2. 在 `src/assets/styles/` 下添加样式
+3. 更新路由配置
+4. 添加国际化文本
+
+### 样式规范
+- 使用Bootstrap 5的组件和工具类
+- 遵循响应式设计原则
+- 支持深色模式
+- 使用CSS变量保持一致性
+
+### 代码规范
+- 使用Vue 3 Composition API
+- 遵循ESLint规则
+- 添加适当的注释
+- 使用TypeScript类型注解（可选）
+
+## 贡献指南
+
+1. Fork项目
+2. 创建功能分支
+3. 提交更改
+4. 推送到分支
+5. 创建Pull Request
+
+## 许可证
+
+MIT License
+
+## 更新日志
+
+### v1.1.0 (最新)
+- ✨ 新增思维导图生成功能
+- 🎨 优化UI界面和交互体验
+- 🐛 修复多个已知问题
+- 📱 改进移动端适配
+
+### v1.0.0
+- 🎉 初始版本发布
+- 📊 基础调用链分析功能
+- 🔍 静态和运行时分析
+- 🎨 响应式界面设计
+

@@ -1,0 +1,126 @@
+/* FunctionSearch 组件样式 */
+
+/* 搜索框样式 */
+.search-container {
+  position: relative;
+}
+
+.dropdown-menu {
+  width: 100%;
+  max-height: 400px;
+  overflow-y: auto;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid #dee2e6;
+  background-color: white;
+  z-index: 1000;
+}
+
+.dropdown-header {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+  color: #6c757d;
+  font-weight: 600;
+  padding: 0.75rem 1rem;
+  margin: 0;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  color: #212529;
+  text-decoration: none;
+  background-color: transparent;
+  border: 0;
+  border-bottom: 1px solid #f8f9fa;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.dropdown-item.active, 
+.dropdown-item:active, 
+.dropdown-item:hover {
+  background-color: rgba(13, 110, 253, 0.1);
+  color: #0d6efd;
+  transform: translateX(5px);
+}
+
+.dropdown-item .function-icon {
+  margin-right: 0.75rem;
+  flex-shrink: 0;
+}
+
+.dropdown-item .function-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.dropdown-item .function-name {
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+  word-wrap: break-word;
+}
+
+.dropdown-item .function-info {
+  font-size: 0.875rem;
+  color: #6c757d;
+}
+
+/* 高亮文本 */
+.highlight {
+  background-color: rgba(255, 193, 7, 0.3);
+  color: #333;
+  font-weight: 600;
+  padding: 0.1em 0.2em;
+  border-radius: 2px;
+}
+
+/* 函数图标 */
+.function-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background-color: rgba(13, 110, 253, 0.1);
+  color: #0d6efd;
+  border-radius: 8px;
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+  .dropdown-header {
+    background-color: #2d2d2d;
+    color: #e1e1e1;
+  }
+
+  .dropdown-menu {
+    background-color: #2d2d2d;
+    border: 1px solid #3d3d3d;
+  }
+
+  .dropdown-item {
+    color: #e1e1e1;
+  }
+
+  .dropdown-item.active, 
+  .dropdown-item:active, 
+  .dropdown-item:hover {
+    background-color: rgba(91, 154, 255, 0.15);
+  }
+
+  .highlight {
+    background-color: rgba(255, 193, 7, 0.15);
+    color: #e1e1e1;
+  }
+
+  .function-icon {
+    background-color: rgba(91, 154, 255, 0.15);
+    color: #5b9aff;
+  }
+} 

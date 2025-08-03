@@ -1,42 +1,45 @@
 <template>
   <div class="function-analysis">
     <!-- 搜索部分 -->
-    <div class="card mb-4 search-section">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="bi bi-search me-2"></i>{{ t('runtimeAnalysis.functionAnalysis.title') }}</h5>
+    <div class="card mb-4 shadow-sm search-section">
+      <div class="card-header bg-gradient-primary text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+          <i class="bi bi-search me-2"></i>{{ t('runtimeAnalysis.functionAnalysis.title') }}
+          <small class="ms-2 opacity-75">(函数搜索与分析)</small>
+        </h5>
       </div>
       <div class="card-body">
         <!-- 搜索框区域 -->
-        <div class="d-flex align-items-center mb-3">
-          <div class="search-icon me-2">
-            <i class="bi bi-code-square"></i>
+                  <div class="d-flex align-items-center mb-3">
+            <div class="search-icon me-2">
+              <i class="bi bi-code-square text-primary"></i>
+            </div>
+            <div class="flex-grow-1">
+              <input
+                ref="searchInput"
+                v-model="searchQuery"
+                type="text"
+                :placeholder="t('runtimeAnalysis.functionAnalysis.inputFunctionName')"
+                class="form-control border-primary"
+                @input="handleInput"
+                @keydown.down="onDown"
+                @keydown.up="onUp"
+                @keydown.enter="onEnter"
+                @keydown.esc="hideDropdown"
+                autocomplete="off"
+              />
+            </div>
+            <div class="ms-2">
+              <button class="btn btn-primary" @click="search">
+                <i class="bi bi-search me-1"></i> {{ t('runtimeAnalysis.functionAnalysis.search') }}
+              </button>
+            </div>
           </div>
-          <div class="flex-grow-1">
-            <input
-              ref="searchInput"
-              v-model="searchQuery"
-              type="text"
-              :placeholder="t('runtimeAnalysis.functionAnalysis.inputFunctionName')"
-              class="form-control"
-              @input="handleInput"
-              @keydown.down="onDown"
-              @keydown.up="onUp"
-              @keydown.enter="onEnter"
-              @keydown.esc="hideDropdown"
-              autocomplete="off"
-            />
-          </div>
-          <div class="ms-2">
-            <button class="btn btn-primary" @click="search">
-              <i class="bi bi-search me-1"></i> {{ t('runtimeAnalysis.functionAnalysis.search') }}
-            </button>
-          </div>
-        </div>
         
         <!-- 搜索建议区域 - 以卡片形式展示 -->
-        <div v-if="showDropdown && filteredItems.length > 0" class="search-suggestions-card mt-2">
+        <div v-if="showDropdown && filteredItems.length > 0" class="search-suggestions-card mt-2 shadow-sm">
           <div class="suggestions-header px-3 py-2 bg-light border-bottom">
-            <small><i class="bi bi-info-circle me-1"></i>{{ t('runtimeAnalysis.functionAnalysis.foundCount', { count: filteredItems.length }) }}</small>
+            <small><i class="bi bi-info-circle me-1 text-primary"></i>{{ t('runtimeAnalysis.functionAnalysis.foundCount', { count: filteredItems.length }) }}</small>
           </div>
           <div class="suggestions-body" style="max-height: 300px; overflow-y: auto;">
             <div 
@@ -49,7 +52,7 @@
             >
               <div class="d-flex align-items-center">
                 <div class="function-icon me-2">
-                  <i class="bi bi-code-square"></i>
+                  <i class="bi bi-code-square text-primary"></i>
                 </div>
                 <div>
                   <div v-html="highlightText(item.name, searchQuery)"></div>
@@ -67,10 +70,11 @@
       
       <!-- 选中函数显示区域 -->
       <div class="selected-function mt-4">
-        <div class="card function-card">
-          <div class="card-header function-header">
-            <i class="bi bi-code-square  me-2"></i>
-            <strong class="text-primary">{{ selectedFunction.name }}</strong>
+        <div class="card function-card shadow-sm">
+          <div class="card-header bg-gradient-info text-white function-header">
+            <i class="bi bi-code-square me-2"></i>
+            <strong>{{ formatFunctionName(selectedFunction.name, getCurrentModule()) }}</strong>
+            <small class="ms-2 opacity-75">(函数详情)</small>
           </div>
           <div class="card-body">
             <div v-if="loading" class="d-flex justify-content-center align-items-center p-5">
@@ -125,165 +129,140 @@
                 </div>
               </div>
             
-              <!-- 函数调用分析部分 -->
-              <div class="card mb-4">
-                <div class="card-header">
-                  <ul class="nav nav-tabs card-header-tabs">
-                    <li class="nav-item">
-                      <a class="nav-link" :class="{ active: activeTab === 'callers' }" href="#" @click.prevent="activeTab = 'callers'">
-                        <i class="bi bi-arrow-down-circle me-1"></i>调用者
-                      </a>
-                    </li>
-                    <li class="nav-item">
-                      <a class="nav-link" :class="{ active: activeTab === 'callees' }" href="#" @click.prevent="activeTab = 'callees'">
-                        <i class="bi bi-arrow-up-circle me-1"></i>被调用者
-                      </a>
-                    </li>
-                    <li class="nav-item">
-                      <a class="nav-link" :class="{ active: activeTab === 'tree' }" href="#" @click.prevent="activeTab = 'tree'">
-                        <i class="bi bi-diagram-3 me-1"></i>调用树
-                      </a>
-                    </li>
-
-                  </ul>
+              <!-- 函数在Goroutine中的分布 -->
+              <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-gradient-success text-white">
+                  <h5 class="mb-0">
+                    <i class="bi bi-diagram-3 me-2"></i>函数在Goroutine中的分布
+                    <small class="ms-2 opacity-75">({{ goroutineData.length }} 个)</small>
+                  </h5>
                 </div>
                 <div class="card-body">
-                  <!-- 加载状态 -->
                   <div v-if="loading" class="text-center py-3">
                     <div class="spinner-border text-primary" role="status">
                       <span class="visually-hidden">{{ t('common.loading') }}</span>
                     </div>
                   </div>
                   
-                  <!-- 调用者表格 -->
-                  <div v-else-if="activeTab === 'callers'" class="table-responsive">
-                    <p class="text-muted mb-2">{{ $t('runtimeAnalysis.functionAnalysis.callersList', { name: selectedFunction.name }) }}：</p>
-                    <table class="table table-hover" v-if="functionData.callers && functionData.callers.length">
-                      <thead>
-                        <tr>
-                          <th scope="col">#</th>
-                          <th scope="col">{{ $t('runtimeAnalysis.functionAnalysis.functionName') }}</th>
-                          <th scope="col">{{ $t('runtimeAnalysis.functionAnalysis.packagePath') }}</th>
-                          <th scope="col">{{ $t('runtimeAnalysis.functionAnalysis.callCount') }}</th>
-                          <th scope="col">{{ $t('runtimeAnalysis.functionAnalysis.avgTime') }}</th>
-                          <th scope="col">{{ $t('runtimeAnalysis.functionAnalysis.operations') }}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr v-for="(caller, index) in functionData.callers" :key="caller.id || caller.name">
-                          <td>{{ index + 1 }}</td>
-                          <td>{{ caller.name }}</td>
-                          <td><span class="badge bg-light text-dark">{{ caller.package || $t('runtimeAnalysis.functionAnalysis.none') }}</span></td>
-                          <td><span class="badge bg-primary">{{ caller.callCount || 0 }}</span></td>
-                          <td><span class="badge bg-info">{{ formatTime(caller.avgTime) }} ms</span></td>
-                          <td>
-                            <button class="btn btn-sm btn-outline-primary" @click="selectItem(caller)">
-                              <i class="bi bi-box-arrow-in-right me-1"></i>{{ $t('runtimeAnalysis.functionAnalysis.analyze') }}
-                            </button>
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                    <div v-else class="alert alert-info">
-                      <i class="bi bi-info-circle me-2"></i>{{ $t('runtimeAnalysis.functionAnalysis.noCallers') }}
-                    </div>
-                  </div>
-                  
-                  <!-- 被调用者表格 -->
-                  <div v-else-if="activeTab === 'callees'" class="table-responsive">
-                    <p class="text-muted mb-2">{{ $t('runtimeAnalysis.functionAnalysis.calleesList', { name: selectedFunction.name }) }}：</p>
-                    <table class="table table-hover" v-if="functionData.callees && functionData.callees.length">
-                      <thead>
-                        <tr>
-                          <th scope="col">#</th>
-                          <th scope="col">{{ $t('runtimeAnalysis.functionAnalysis.functionName') }}</th>
-                          <th scope="col">{{ $t('runtimeAnalysis.functionAnalysis.packagePath') }}</th>
-                          <th scope="col">{{ $t('runtimeAnalysis.functionAnalysis.callCount') }}</th>
-                          <th scope="col">{{ $t('runtimeAnalysis.functionAnalysis.avgTime') }}</th>
-                          <th scope="col">{{ $t('runtimeAnalysis.functionAnalysis.operations') }}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr v-for="(callee, index) in functionData.callees" :key="callee.id || callee.name">
-                          <td>{{ index + 1 }}</td>
-                          <td>{{ callee.name }}</td>
-                          <td><span class="badge bg-light text-dark">{{ callee.package || $t('runtimeAnalysis.functionAnalysis.none') }}</span></td>
-                          <td><span class="badge bg-success">{{ callee.callCount || 0 }}</span></td>
-                          <td><span class="badge bg-info">{{ formatTime(callee.avgTime) }} ms</span></td>
-                          <td>
-                            <button class="btn btn-sm btn-outline-primary" @click="selectItem(callee)">
-                              <i class="bi bi-box-arrow-in-right me-1"></i>{{ $t('runtimeAnalysis.functionAnalysis.analyze') }}
-                            </button>
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                    <div v-else class="alert alert-info">
-                      <i class="bi bi-info-circle me-2"></i>{{ $t('runtimeAnalysis.functionAnalysis.noCallees') }}
-                    </div>
-                  </div>
-                  
-                  <!-- 树状图展示 -->
-                  <div v-else-if="activeTab === 'tree'" class="tree-view">
-                    <div class="mb-3">
-                      <div class="d-flex align-items-center mb-2">
-                        <div class="me-3">
-                          <label class="form-label">链类型：</label>
-                          <select v-model="chainType" class="form-select form-select-sm" @change="loadTreeGraph">
-                            <option value="upstream">上游调用链</option>
-                            <option value="downstream">下游调用链</option>
-                            <option value="full">完整调用链</option>
-                          </select>
+                  <div v-else-if="goroutineData.length > 0" class="table-responsive">
+                    <div class="goroutine-summary mb-4">
+                      <div class="row align-items-center">
+                        <div class="col">
+                          <h6 class="mb-1">函数分布概览</h6>
+                          <p class="text-muted mb-0">
+                            函数 <code class="function-name">{{ formatFunctionName(selectedFunction.name, getCurrentModule()) }}</code> 在 
+                            <span class="badge bg-primary rounded-pill mx-1">{{ goroutineData.length }}</span> 
+                            个Goroutine中被调用
+                          </p>
                         </div>
-                        <div>
-                          <label class="form-label">深度：</label>
-                          <select v-model="treeDepth" class="form-select form-select-sm" @change="loadTreeGraph">
-                            <option value="1">1</option>
-                            <option value="2">2</option>
-                            <option value="3">3</option>
-                            <option value="4">4</option>
-                            <option value="5">5</option>
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div v-if="loadingTree" class="py-5 text-center">
-                      <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">加载中...</span>
-                      </div>
-                      <div class="mt-2">加载调用树数据...</div>
-                    </div>
-                    
-                    <div v-else-if="treeData.length === 0" class="alert alert-info">
-                      <i class="bi bi-info-circle me-2"></i>没有可用的调用树数据
-                    </div>
-                    
-                    <div v-else class="tree-container">
-                      <div class="card">
-                        <div class="card-body">
-                          <div class="tree-node" v-for="(tree, index) in treeData" :key="index">
-                            <div class="tree-root">
-                              <i class="bi bi-diagram-3 me-2"></i>
-                              <strong>{{ tree.name }}</strong>
-                            </div>
-                            <div class="tree-children ps-4 mt-2">
-                              <template v-if="tree.children && tree.children.length">
-                                <div v-for="(child, childIndex) in tree.children" :key="childIndex">
-                                  <tree-node :node="child" @select-function="handleTreeNodeClick" />
-                                </div>
-                              </template>
-                              <div v-else class="text-muted">
-                                <i class="bi bi-info-circle me-2"></i>没有子节点
-                              </div>
-                            </div>
+                        <div class="col-auto">
+                          <div class="stats-badges">
+                            <span class="badge bg-success rounded-pill me-2">
+                              <i class="bi bi-check-circle me-1"></i>
+                              {{ goroutineData.filter(g => g.isFinished).length }} 已完成
+                            </span>
+                            <span class="badge bg-warning rounded-pill">
+                              <i class="bi bi-clock me-1"></i>
+                              {{ goroutineData.filter(g => !g.isFinished).length }} 运行中
+                            </span>
                           </div>
                         </div>
                       </div>
                     </div>
+
+                    <div class="modern-table-container">
+                      <table class="table table-hover modern-table mb-0">
+                        <thead class="table-light">
+                          <tr>
+                            <th scope="col" class="text-center border-0" style="width: 60px;">
+                              <i class="bi bi-hash me-1">序号</i>
+                            </th>
+                            <th scope="col" class="text-center border-0" style="width: 120px;">
+                              <i class="bi bi-cpu me-1"></i>Goroutine ID
+                            </th>
+                            <th scope="col" class="border-0">
+                              <i class="bi bi-code-slash me-1"></i>初始函数
+                            </th>
+                            <th scope="col" class="text-center border-0" style="width: 100px;">
+                              <i class="bi bi-layers me-1"></i>调用深度
+                            </th>
+                            <th scope="col" class="text-center border-0" style="width: 120px;">
+                              <i class="bi bi-stopwatch me-1"></i>执行时间
+                            </th>
+                            <th scope="col" class="text-center border-0" style="width: 100px;">
+                              <i class="bi bi-circle-fill me-1"></i>状态
+                            </th>
+                            <th scope="col" class="text-center border-0" style="width: 180px;">
+                              <i class="bi bi-gear me-1"></i>操作
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr v-for="(goroutine, index) in goroutineData" :key="goroutine.gid" class="goroutine-row">
+                            <td class="text-center">
+                              <span class="rank-badge">{{ index + 1 }}</span>
+                            </td>
+                            <td class="text-center">
+                              <span class="badge bg-primary rounded-pill">#{{ goroutine.gid }}</span>
+                            </td>
+                            <td>
+                              <div class="function-info">
+                                <code class="function-name">{{ formatFunctionName(goroutine.initialFunc, getCurrentModule()) }}</code>
+                              </div>
+                            </td>
+                            <td class="text-center">
+                              <span class="depth-badge">
+                                <i class="bi bi-layers me-1"></i>
+                                {{ goroutine.depth || '-' }}
+                              </span>
+                            </td>
+                            <td class="text-center">
+                              <span class="time-badge execution-time">
+                                <i class="bi bi-stopwatch me-1"></i>
+                                {{ goroutine.executionTime || '-' }}
+                              </span>
+                            </td>
+                            <td class="text-center">
+                              <span v-if="goroutine.isFinished" class="badge bg-success rounded-pill">
+                                <i class="bi bi-check-circle me-1"></i>已完成
+                              </span>
+                              <span v-else class="badge bg-warning rounded-pill">
+                                <i class="bi bi-play-circle me-1"></i>运行中
+                              </span>
+                            </td>
+                            <td class="text-center">
+                              <div class="action-buttons">
+                                <router-link 
+                                  :to="{ 
+                                    name: 'TraceDetails', 
+                                    params: { gid: goroutine.gid },
+                                    query: { 
+                                      highlight: goroutine.functionId || selectedFunction?.id
+                                    }
+                                  }" 
+                                  class="btn btn-sm btn-outline-primary action-btn"
+                                  title="查看详细执行流程"
+                                >
+                                  <i class="bi bi-eye me-1"></i>详情
+                                </router-link>
+                                <button 
+                                  class="btn btn-sm btn-outline-success action-btn ms-1"
+                                  @click="showCallChain(goroutine)"
+                                  title="查看完整调用链路"
+                                >
+                                  <i class="bi bi-diagram-3 me-1"></i>链路
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                   
-
+                  <div v-else class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>该函数未在任何Goroutine中找到
+                  </div>
                 </div>
               </div>
             </div>
@@ -306,29 +285,46 @@
         <span class="visually-hidden">{{ t('common.loading') }}</span>
       </div>
     </div>
+
+    <!-- 调用链路模态框 -->
+    <CallChainModal
+      v-model:visible="showCallChainModal"
+      :gid="currentCallChainGoroutine?.gid"
+      :initial-func="currentCallChainGoroutine?.initialFunc"
+      :depth="currentCallChainGoroutine?.depth"
+      :execution-time="currentCallChainGoroutine?.executionTime"
+      :is-finished="currentCallChainGoroutine?.isFinished"
+      :call-chain="currentCallChainGoroutine?.callChain"
+      :target-function="selectedFunction?.name"
+      :target-function-id="currentCallChainGoroutine?.functionId"
+      :db-path="currentDbPath"
+    />
   </div>
 </template>
 
 <script>
-import { ref, onMounted, onUnmounted, computed, nextTick, watch, defineAsyncComponent } from 'vue';
+import { ref, onMounted, onUnmounted, computed, nextTick, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import axios from '../../../axios';
 import debounce from 'lodash/debounce';
-
-// 使用defineAsyncComponent异步加载组件
-const TreeNode = defineAsyncComponent(() => import('./TreeNode.vue'));
+import CallChainModal from './CallChainModal.vue';
+import { formatFunctionName } from '../utils/functionNameUtils.js';
+import { useModuleState } from '../composables/useModuleState.js';
 
 export default {
   name: 'FunctionAnalysis',
   
   components: {
-    TreeNode // 注册TreeNode组件
+    CallChainModal
   },
   
   setup() {
     const { t } = useI18n();
-    // 初始化项目路径
     const currentDbPath = ref(localStorage.getItem('verifiedProjectPath') || '');
+    
+    // Module状态管理
+    const { selectedModule } = useModuleState();
+    
     const searchQuery = ref('');
     const showDropdown = ref(false);
     const activeIndex = ref(-1);
@@ -336,26 +332,18 @@ export default {
     const loading = ref(false);
     const searchInput = ref(null);
     const selectedFunction = ref(null);
-    const activeTab = ref('callers');
-    const functionData = ref({
-      callers: [],
-      callees: []
-    });
+    const goroutineData = ref([]);
     const functionStats = ref({
       callCount: 0,
       avgTime: 0,
-      maxTime: 0,
-      successRate: 0,
-      successCount: 0
+      maxTime: 0
     });
-    
-    // 树状图相关
-    const chainType = ref('full');
-    const treeDepth = ref('3');
-    const treeData = ref([]);
-    const loadingTree = ref(false);
+    const callChainLoading = ref(false);
 
-    // 过滤后的项目
+    // CallChainModal相关
+    const showCallChainModal = ref(false);
+    const currentCallChainGoroutine = ref(null);
+
     const filteredItems = computed(() => {
       return items.value;
     });
@@ -393,10 +381,8 @@ export default {
       }
     };
 
-    // 防抖处理
     const debouncedFetch = debounce(fetchFunctions, 300);
 
-    // 处理输入
     const handleInput = () => {
       if (searchQuery.value.length > 0) {
         debouncedFetch(searchQuery.value);
@@ -406,7 +392,6 @@ export default {
       }
     };
 
-    // 键盘导航 - 下
     const onDown = (e) => {
       e.preventDefault();
       if (!showDropdown.value) {
@@ -423,7 +408,6 @@ export default {
       scrollToActive();
     };
 
-    // 键盘导航 - 上
     const onUp = (e) => {
       e.preventDefault();
       if (!showDropdown.value || filteredItems.value.length === 0) return;
@@ -435,7 +419,6 @@ export default {
       scrollToActive();
     };
 
-    // 确保活动项在视图中
     const scrollToActive = () => {
       nextTick(() => {
         const activeEl = document.querySelector('.suggestion-item.active');
@@ -445,7 +428,6 @@ export default {
       });
     };
 
-    // 处理回车
     const onEnter = () => {
       if (showDropdown.value && activeIndex.value >= 0 && activeIndex.value < filteredItems.value.length) {
         selectItem(filteredItems.value[activeIndex.value]);
@@ -454,140 +436,162 @@ export default {
       }
     };
 
-    // 隐藏下拉框
     const hideDropdown = () => {
       showDropdown.value = false;
     };
 
-    // 选择项目
     const selectItem = (item) => {
       searchQuery.value = item.name;
-      selectedFunction.value = item;
+      selectedFunction.value = {
+        id: null, // search接口不返回id字段，会从gids接口获取
+        name: item.name,
+        package: item.package
+      };
       hideDropdown();
-      // 在这里调用函数分析相关API获取更多数据
       analyzeFunctionDetails(item.name);
     };
 
-    // 分析函数详情
     const analyzeFunctionDetails = async (functionName) => {
-      if (!currentDbPath.value || !functionName) return;
+      if (!currentDbPath.value || !functionName) {
+        console.log('缺少必要参数:', { currentDbPath: currentDbPath.value, functionName });
+        return;
+      }
       
       loading.value = true;
       try {
-        // 初始化函数数据结构
-        functionData.value = {
-          callers: [],
-          callees: []
-        };
+        goroutineData.value = [];
         
-        // 获取被调用者（子函数）
         try {
-          // 优先使用专门的子函数接口
-          const childFunctionsResponse = await axios.post('/api/runtime/functions/children', {
-            dbpath: currentDbPath.value,
-            parentId: functionName // 使用函数名作为父ID参数
+          const goroutineResponse = await axios.post('/api/runtime/gids/function', {
+            path: currentDbPath.value,
+            functionName: functionName,
+            includeMetrics: true
           });
           
-          if (childFunctionsResponse.data && childFunctionsResponse.data.functions) {
-            functionData.value.callees = childFunctionsResponse.data.functions
-              .sort((a, b) => (b.callCount || 0) - (a.callCount || 0));
-          } else {
-            // 如果专门的接口没有返回数据，回退到函数分析数据
-            const functionAnalysisResponse = await axios.post('/api/runtime/function/analysis', {
-              dbpath: currentDbPath.value,
-              functionName: functionName,
-              type: 'full' // 获取完整的调用关系
-            });
+          if (goroutineResponse.data && goroutineResponse.data.body) {
+            goroutineData.value = goroutineResponse.data.body;
             
-            if (functionAnalysisResponse.data && functionAnalysisResponse.data.callData) {
-              // 提取被调用函数（子函数）
-              const calleesData = [];
-              const processNode = (node) => {
-                if (node.children && node.children.length > 0) {
-                  node.children.forEach(child => {
-                    calleesData.push({
-                      name: child.name,
-                      package: child.package || '',
-                      callCount: child.callCount || 0,
-                      avgTime: child.avgTime || '0'
-                    });
-                    processNode(child);
-                  });
-                }
-              };
-              
-              // 处理根节点及其子节点
-              const rootNodes = functionAnalysisResponse.data.callData;
-              rootNodes.forEach(node => processNode(node));
-              
-              // 去重并排序
-              const uniqueCallees = Array.from(
-                new Map(calleesData.map(item => [item.name, item])).values()
-              ).sort((a, b) => b.callCount - a.callCount);
-              
-              functionData.value.callees = uniqueCallees;
-            }
+            // 打印所有Goroutine的functionId用于调试
+            console.log('获取到的Goroutine数据:', goroutineData.value.map(g => ({
+              gid: g.gid,
+              functionId: g.functionId,
+              initialFunc: g.initialFunc
+            })));
+            
+            // 不再设置全局的selectedFunction.value.id，每个Goroutine使用自己的functionId
           }
         } catch (error) {
-          console.error('获取函数被调用者数据失败:', error);
+          console.error('获取函数在Goroutine中的分布失败:', error);
+        }
+        
+        // 为每个Goroutine获取调用链路信息
+        if (goroutineData.value.length > 0) {
+          callChainLoading.value = true;
+          console.log('准备为每个Goroutine获取调用链路信息');
           
-          // 发生错误时回退到函数分析数据
-          try {
-            const functionAnalysisResponse = await axios.post('/api/runtime/function/analysis', {
-              dbpath: currentDbPath.value,
-              functionName: functionName,
-              type: 'full'
-            });
-            
-            if (functionAnalysisResponse.data && functionAnalysisResponse.data.callData) {
-              // 提取被调用函数（子函数）
-              const calleesData = [];
-              const processNode = (node) => {
-                if (node.children && node.children.length > 0) {
-                  node.children.forEach(child => {
-                    calleesData.push({
-                      name: child.name,
-                      package: child.package || '',
-                      callCount: child.callCount || 0,
-                      avgTime: child.avgTime || '0'
-                    });
-                    processNode(child);
+          // 为每个Goroutine获取调用链路信息
+          await Promise.all(goroutineData.value.map(async (goroutine) => {
+            try {
+              // 首先为每个goroutine设置默认调用链路
+              // 只有当初始函数和目标函数不同时才添加初始函数
+              if (goroutine.initialFunc && goroutine.initialFunc !== selectedFunction.value.name) {
+                goroutine.callChain = [goroutine.initialFunc, selectedFunction.value.name];
+              } else {
+                goroutine.callChain = [selectedFunction.value.name];
+              }
+              
+              console.log(`为Goroutine ${goroutine.gid} 获取调用链路详情，functionId: ${goroutine.functionId}`);
+              
+              // 只有在Goroutine有自己的functionId时才调用info接口
+              if (goroutine.functionId) {
+                console.log(`使用Goroutine自己的functionId ${goroutine.functionId} 调用info接口`);
+                try {
+                  const functionInfoResponse = await axios.post('/api/runtime/function/info', {
+                    dbpath: currentDbPath.value,
+                    gid: goroutine.gid,
+                    functionId: goroutine.functionId,
+                    currentDepth: goroutine.depth || 3
                   });
+                  
+                  console.log(`Goroutine ${goroutine.gid} (functionId: ${goroutine.functionId}) 调用链路响应:`, functionInfoResponse?.data);
+                  
+                  if (functionInfoResponse?.data?.functionInfo) {
+                    const functionInfo = functionInfoResponse.data.functionInfo;
+                    
+                    // 构建调用链路：从初始函数到当前函数
+                    const callChain = [];
+                    
+                    // 获取所有父函数（按深度排序）
+                    const allParents = [];
+                    if (functionInfo.parentIds && functionInfo.parentIds.length > 0) {
+                      const sortedParents = functionInfo.parentIds
+                        .sort((a, b) => a.depth - b.depth);
+                      
+                      // 收集所有父函数名称
+                      sortedParents.forEach((parent) => {
+                        if (parent.name) {
+                          allParents.push(parent.name);
+                        }
+                      });
+                    }
+                    
+                    // 检查初始函数是否在父函数列表中
+                    const isInitialFuncInParents = goroutine.initialFunc && allParents.includes(goroutine.initialFunc);
+                    
+                    // 只有当初始函数不在父函数列表中时，才添加为初始函数
+                    if (goroutine.initialFunc && !isInitialFuncInParents) {
+                      callChain.push(goroutine.initialFunc);
+                    }
+                    
+                    // 添加父函数（按深度排序）
+                    if (allParents.length > 0) {
+                      allParents.forEach((parentName) => {
+                        // 避免重复添加初始函数
+                        if (parentName !== goroutine.initialFunc) {
+                          callChain.push(parentName);
+                        }
+                      });
+                    } else {
+                      // 如果没有父函数信息，且没有初始函数，添加说明
+                      if (callChain.length === 0) {
+                        callChain.push('...');
+                      }
+                    }
+                    
+                    // 添加当前函数
+                    if (!callChain.includes(selectedFunction.value.name)) {
+                      callChain.push(selectedFunction.value.name);
+                    }
+                    
+                    goroutine.callChain = callChain;
+                    console.log(`Goroutine ${goroutine.gid} 调用链路构建完成:`, callChain);
+                  } else {
+                    console.log(`Goroutine ${goroutine.gid} 没有返回有效的函数信息，使用默认调用链路`);
+                  }
+                } catch (error) {
+                  console.error(`Goroutine ${goroutine.gid} 调用info接口失败:`, error);
+                  // 保持默认的调用链路
                 }
-              };
+              } else {
+                console.log(`Goroutine ${goroutine.gid} 没有functionId，使用默认调用链路`);
+                // 保持默认的调用链路
+              }
               
-              // 处理根节点及其子节点
-              const rootNodes = functionAnalysisResponse.data.callData;
-              rootNodes.forEach(node => processNode(node));
-              
-              // 去重并排序
-              const uniqueCallees = Array.from(
-                new Map(calleesData.map(item => [item.name, item])).values()
-              ).sort((a, b) => b.callCount - a.callCount);
-              
-              functionData.value.callees = uniqueCallees;
+            } catch (error) {
+              console.error(`获取Goroutine ${goroutine.gid} 的调用链路失败:`, error);
+              // 确保即使出错也有基本的调用链路
+              if (goroutine.initialFunc && goroutine.initialFunc !== selectedFunction.value.name) {
+                goroutine.callChain = [goroutine.initialFunc, selectedFunction.value.name].filter(Boolean);
+              } else {
+                goroutine.callChain = [selectedFunction.value.name].filter(Boolean);
+              }
             }
-          } catch (innerError) {
-            console.error('回退方法获取被调用者数据也失败:', innerError);
-          }
-        }
-        
-        // 获取调用者（父函数）
-        try {
-          const parentFunctionsResponse = await axios.post('/api/runtime/functions/parents', {
-            dbpath: currentDbPath.value,
-            functionName: functionName
-          });
+          }));
           
-          if (parentFunctionsResponse.data && parentFunctionsResponse.data.functions) {
-            functionData.value.callers = parentFunctionsResponse.data.functions
-              .sort((a, b) => (b.callCount || 0) - (a.callCount || 0));
-          }
-        } catch (error) {
-          console.error('获取函数调用者数据失败:', error);
+          callChainLoading.value = false;
+          console.log('所有调用链路获取完成');
         }
         
-        // 获取函数性能指标
         try {
           const statsResponse = await axios.post('/api/runtime/function/stats', {
             dbPath: currentDbPath.value,
@@ -595,10 +599,8 @@ export default {
           });
           
           if (statsResponse.data && statsResponse.data.stats && statsResponse.data.stats.length > 0) {
-            // 服务器返回的是数组，取第一个元素
             functionStats.value = statsResponse.data.stats[0] || {};
             
-            // 处理时间字符串
             if (typeof functionStats.value.avgTime === 'string') {
               functionStats.value.avgTime = parseFloat(functionStats.value.avgTime);
             }
@@ -608,12 +610,6 @@ export default {
             if (typeof functionStats.value.minTime === 'string') {
               functionStats.value.minTime = parseFloat(functionStats.value.minTime);
             }
-            
-            // 计算成功率（如果没有提供）
-            if (functionStats.value.callCount && !functionStats.value.successRate) {
-              // 假设所有调用都是成功的，除非有明确的失败数据
-              functionStats.value.successRate = 1.0;
-            }
           } else {
             functionStats.value = {};
           }
@@ -621,89 +617,32 @@ export default {
           console.error('获取函数性能指标失败:', error);
           functionStats.value = {};
         }
-        
-        // 加载树状图数据
-        if (activeTab.value === 'tree') {
-          loadTreeGraph();
-        }
       } catch (error) {
         console.error('分析函数失败:', error);
-        functionData.value = {
-          callers: [],
-          callees: []
-        };
+        goroutineData.value = [];
         functionStats.value = {};
       } finally {
         loading.value = false;
       }
     };
 
-    // 加载树状图数据
-    const loadTreeGraph = async () => {
-      if (!selectedFunction.value || !selectedFunction.value.name) return;
-      
-      loadingTree.value = true;
-      treeData.value = [];
-      
-      try {
-        const response = await axios.post('/api/runtime/tree-graph', {
-          dbPath: currentDbPath.value,
-          functionName: selectedFunction.value.name,
-          chainType: chainType.value,
-          depth: parseInt(treeDepth.value)
-        });
-        
-        if (response.data && Array.isArray(response.data.trees)) {
-          treeData.value = response.data.trees;
-        } else {
-          console.warn('树状图数据格式不符合预期', response.data);
-          treeData.value = [];
-        }
-      } catch (error) {
-        console.error('获取调用树数据失败:', error);
-        treeData.value = [];
-      } finally {
-        loadingTree.value = false;
-      }
-    };
-    
-    // 处理树节点点击事件
-    const handleTreeNodeClick = (node) => {
-      if (!node) return;
-      
-      try {
-        if (node && node.name) {
-          // 查找功能是否在搜索结果中
-          const foundFunction = items.value.find(item => item.name === node.name);
-          
-          if (foundFunction) {
-            selectItem(foundFunction);
-          } else {
-            // 创建一个简单的函数对象
-            const simpleFn = {
-              name: node.name,
-              package: ''
-            };
-            selectItem(simpleFn);
-          }
-        }
-      } catch (error) {
-        console.error('处理树节点点击事件失败:', error);
-      }
-    };
-
-    // 执行搜索
-    const search = () => {
+    const search = async () => {
       if (!searchQuery.value) {
         alert(t('runtimeAnalysis.functionAnalysis.pleaseInputFunction'));
         return;
       }
       hideDropdown();
-      // 可以在这里直接搜索或调用其他方法
-      fetchFunctions(searchQuery.value);
+      
+      selectedFunction.value = {
+        id: null, // 不从search接口获取id，会从gids接口中的functionId获取
+        name: searchQuery.value,
+        package: ''
+      };
+      
+      // 直接分析函数详情，functionId会从gids接口获取
+      analyzeFunctionDetails(searchQuery.value);
     };
 
-    // 高亮文本
     const highlightText = (text, query) => {
       if (!query) return text;
       try {
@@ -714,14 +653,12 @@ export default {
       }
     };
 
-    // 点击外部关闭下拉框
     const handleClickOutside = (event) => {
       if (searchInput.value && !searchInput.value.contains(event.target)) {
         hideDropdown();
       }
     };
 
-    // 生命周期钩子
     onMounted(() => {
       document.addEventListener('click', handleClickOutside);
     });
@@ -731,11 +668,26 @@ export default {
       if (debouncedFetch.cancel) debouncedFetch.cancel();
     });
 
-    // 格式化时间显示
+    // 从localStorage获取当前数据库的module设置
+    const getCurrentModule = () => {
+      const dbPath = currentDbPath.value;
+      if (dbPath) {
+        const storageKey = `runtime_analysis_module_${dbPath}`;
+        return localStorage.getItem(storageKey) || '';
+      }
+      return '';
+    };
+
+    // 监听selectedModule变化，强制刷新页面
+    watch(selectedModule, () => {
+      console.log('Module changed, reloading page to get fresh data');
+      // 强制刷新页面以重新获取原始数据
+      window.location.reload();
+    });
+
     const formatTime = (time) => {
       if (!time) return '0';
       
-      // 如果是字符串并且包含单位，提取数值部分
       if (typeof time === 'string') {
         const match = time.match(/(\d+(\.\d+)?)/);
         if (match) {
@@ -744,7 +696,6 @@ export default {
         return '0';
       }
       
-      // 如果是数值
       if (isNaN(Number(time))) return '0';
       const timeNum = Number(time);
       if (timeNum < 1) {
@@ -752,23 +703,12 @@ export default {
       }
       return timeNum.toFixed(1);
     };
-    
-    // 格式化成功率
-    const formatSuccessRate = (rate) => {
-      if (!rate || isNaN(Number(rate))) return '0%';
-      const rateNum = Number(rate);
-      return (rateNum * 100).toFixed(1) + '%';
-    };
 
-    // 监听标签切换
-    const watchTabChange = () => {
-      if (activeTab.value === 'tree' && selectedFunction.value) {
-        loadTreeGraph();
-      }
+    // 显示调用链路详情
+    const showCallChain = (goroutine) => {
+      currentCallChainGoroutine.value = goroutine;
+      showCallChainModal.value = true;
     };
-
-    // 监听activeTab变化
-    watch(activeTab, watchTabChange);
 
     return {
       currentDbPath,
@@ -779,8 +719,6 @@ export default {
       loading,
       searchInput,
       selectedFunction,
-      activeTab,
-      functionData,
       functionStats,
       handleInput,
       onDown,
@@ -792,291 +730,20 @@ export default {
       highlightText,
       analyzeFunctionDetails,
       formatTime,
-      formatSuccessRate,
       t,
-      // 树状图相关
-      chainType,
-      treeDepth,
-      treeData,
-      loadingTree,
-      loadTreeGraph,
-      handleTreeNodeClick
+      goroutineData,
+      callChainLoading,
+      showCallChainModal,
+      currentCallChainGoroutine,
+      showCallChain,
+      formatFunctionName,
+      selectedModule,
+      getCurrentModule
     };
   }
 };
 </script>
 
-<style scoped>
-.function-analysis {
-  padding: 1rem;
-  position: relative;
-  isolation: isolate;
-}
-
-.search-section {
-  position: relative;
-}
-
-.search-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  background-color: rgba(13, 110, 253, 0.1);
-  color: #0d6efd;
-  border-radius: 8px;
-}
-
-.search-suggestions-card {
-  border: 1px solid #dee2e6;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  background-color: white;
-}
-
-.suggestions-header {
-  font-size: 0.875rem;
-  color: #6c757d;
-}
-
-.suggestion-item {
-  cursor: pointer;
-  border-radius: 4px;
-  margin: 4px 8px;
-  transition: background-color 0.1s ease-in-out;
-}
-
-.suggestion-item:hover {
-  background-color: #f8f9fa;
-}
-
-.suggestion-item.active {
-  background-color: rgba(13, 110, 253, 0.08);
-}
-
-.function-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  background-color: rgba(13, 110, 253, 0.1);
-  color: #0d6efd;
-  border-radius: 8px;
-}
-
-.highlight {
-  background-color: rgba(255, 193, 7, 0.2);
-  padding: 0.1em 0.2em;
-  border-radius: 2px;
-  font-weight: bold;
-  color: #212529;
-}
-
-.empty-state {
-  padding: 3rem;
-  background-color: rgba(248, 249, 250, 0.5);
-  border-radius: 12px;
-  max-width: 500px;
-  margin: 0 auto;
-}
-
-.function-info {
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.nav-tabs .nav-link {
-  color: #6c757d;
-  border: none;
-  padding: 0.5rem 1rem;
-  transition: all 0.2s ease;
-}
-
-.nav-tabs .nav-link:hover {
-  color: #495057;
-  background-color: rgba(13, 110, 253, 0.05);
-}
-
-.nav-tabs .nav-link.active {
-  color: #0d6efd;
-  background-color: rgba(13, 110, 253, 0.1);
-  border-bottom: 2px solid #0d6efd;
-}
-
-.table th {
-  background-color: #f8f9fa;
-  font-weight: 500;
-}
-
-.table-hover tbody tr:hover {
-  background-color: rgba(13, 110, 253, 0.05);
-}
-
-/* 深色模式支持 */
-@media (prefers-color-scheme: dark) {
-  .search-icon {
-    background-color: rgba(91, 154, 255, 0.15);
-    color: #5b9aff;
-  }
-
-  .search-suggestions-card {
-    background-color: #2d2d2d;
-    border-color: #3d3d3d;
-  }
-  
-  .suggestions-header {
-    background-color: #333333 !important;
-    color: #a0a0a0;
-    border-bottom-color: #3d3d3d !important;
-  }
-
-  .suggestion-item:hover {
-    background-color: #333333;
-  }
-
-  .suggestion-item.active {
-    background-color: rgba(91, 154, 255, 0.15);
-  }
-
-  .function-icon {
-    background-color: rgba(91, 154, 255, 0.15);
-    color: #5b9aff;
-  }
-
-  .highlight {
-    background-color: rgba(255, 193, 7, 0.15);
-    color: #e1e1e1;
-  }
-
-  .empty-state {
-    color: #a0a0a0;
-    background-color: rgba(45, 45, 45, 0.5);
-  }
-
-  .nav-tabs .nav-link {
-    color: #a0a0a0;
-  }
-  
-  .nav-tabs .nav-link:hover {
-    color: #e1e1e1;
-    background-color: rgba(91, 154, 255, 0.08);
-  }
-  
-  .nav-tabs .nav-link.active {
-    color: #5b9aff;
-    background-color: rgba(91, 154, 255, 0.15);
-    border-bottom-color: #5b9aff;
-  }
-  
-  .table th {
-    background-color: #333333;
-    color: #e1e1e1;
-  }
-  
-  .table {
-    color: #e1e1e1;
-  }
-  
-  .table-hover tbody tr:hover {
-    background-color: rgba(91, 154, 255, 0.08);
-  }
-  
-  .badge.bg-light {
-    background-color: #444444 !important;
-    color: #e1e1e1 !important;
-  }
-}
-
-.selected-function {
-  margin-top: 2rem;
-}
-
-.function-header {
-  background-color: var(--bs-primary-bg-subtle);
-  border-bottom: 1px solid var(--bs-border-color);
-}
-
-.function-card {
-  box-shadow: 0 .125rem .25rem rgba(0, 0, 0, .075);
-  transition: box-shadow .3s;
-}
-
-.function-card:hover {
-  box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .15);
-}
-
-.metric-card {
-  border-radius: 0.5rem;
-  overflow: hidden;
-  transition: all 0.3s ease;
-  border: 1px solid var(--bs-border-color);
-}
-
-.metric-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .15);
-}
-
-.metric-card .card-title {
-  font-size: 1rem;
-  margin-bottom: 1rem;
-  color: var(--bs-secondary);
-}
-
-.metric-card .display-6 {
-  font-weight: 600;
-  color: var(--bs-primary);
-}
-
-/* 深色模式支持 */
-[data-bs-theme="dark"] .metric-card {
-  background-color: var(--bs-dark-bg-subtle);
-}
-
-[data-bs-theme="dark"] .metric-card .display-6 {
-  color: var(--bs-info);
-}
-
-[data-bs-theme="dark"] .function-header {
-  background-color: var(--bs-dark-bg-subtle);
-}
-
-/* 树形结构样式 */
-.tree-container {
-  max-height: 500px;
-  overflow-y: auto;
-}
-
-.tree-node {
-  padding: 4px 0;
-}
-
-.tree-node-simple {
-  padding: 4px 0;
-  margin-bottom: 8px;
-}
-
-.tree-root {
-  font-weight: 500;
-  padding: 6px;
-  background-color: var(--hover-color);
-  border-radius: 4px;
-}
-
-.toggle-icon {
-  cursor: pointer;
-  color: var(--primary-color);
-}
-
-.node-content {
-  cursor: pointer;
-  padding: 2px 4px;
-  border-radius: 4px;
-}
-
-.node-content:hover {
-  background-color: var(--hover-color);
-}
+<style>
+@import url("../../../assets/styles/components/runtime/function-analysis.css");
 </style> 

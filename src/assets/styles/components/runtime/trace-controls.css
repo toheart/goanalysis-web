@@ -1,0 +1,36 @@
+/* TraceControls 组件样式 */
+
+/* 表单控件 */
+.form-control[type="number"] {
+  max-width: 100px;
+}
+
+/* 按钮组 */
+.btn-group .btn {
+  font-size: 0.875rem;
+}
+
+/* 进度条 */
+.progress {
+  height: 6px;
+}
+
+/* 控制区域 */
+.card-header .controls {
+  flex-shrink: 0;
+}
+
+/* 表单文本 */
+.form-text {
+  font-size: 0.75rem;
+}
+
+/* 小号文本 */
+small.text-muted {
+  font-size: 0.75rem;
+}
+
+/* 图标 */
+.bi {
+  font-size: 0.875rem;
+} 

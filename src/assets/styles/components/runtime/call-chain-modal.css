@@ -1,0 +1,361 @@
+/* CallChainModal 组件样式 */
+
+/* 调用链容器 */
+.call-chain-container {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+/* 调用链可视化 */
+.call-chain-visual {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.call-chain-flow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.call-chain-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 500px;
+}
+
+/* 函数卡片 */
+.function-card {
+  background: white;
+  border: 2px solid #dee2e6;
+  border-radius: 8px;
+  padding: 1rem;
+  width: 100%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.function-card:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.function-card.current {
+  border-color: #007bff;
+  background: linear-gradient(135deg, rgba(0, 123, 255, 0.05) 0%, rgba(0, 123, 255, 0.1) 100%);
+}
+
+.function-card.caller {
+  border-color: #28a745;
+  background: linear-gradient(135deg, rgba(40, 167, 69, 0.05) 0%, rgba(40, 167, 69, 0.1) 100%);
+}
+
+.function-card.callee {
+  border-color: #ffc107;
+  background: linear-gradient(135deg, rgba(255, 193, 7, 0.05) 0%, rgba(255, 193, 7, 0.1) 100%);
+}
+
+/* 函数信息 */
+.function-name {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: #333;
+  margin-bottom: 0.5rem;
+  word-break: break-all;
+}
+
+.function-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.function-location {
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+
+.function-stats {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.5rem;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 6px;
+  min-width: 60px;
+}
+
+.stat-value {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: #007bff;
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  color: #6c757d;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* 连接线 */
+.connection-line {
+  width: 2px;
+  height: 20px;
+  background: linear-gradient(to bottom, #dee2e6, #adb5bd);
+  margin: 0.5rem 0;
+  position: relative;
+}
+
+.connection-line::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -2px;
+  width: 6px;
+  height: 6px;
+  background: #007bff;
+  border-radius: 50%;
+}
+
+.connection-line::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: -2px;
+  width: 6px;
+  height: 6px;
+  background: #007bff;
+  border-radius: 50%;
+}
+
+/* 调用方向指示器 */
+.call-direction {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+  color: #6c757d;
+  font-size: 0.875rem;
+}
+
+.direction-arrow {
+  color: #007bff;
+  font-weight: 600;
+}
+
+/* 空状态 */
+.empty-state {
+  text-align: center;
+  padding: 2rem;
+  color: #6c757d;
+}
+
+.empty-state .empty-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+/* 加载状态 */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem;
+  color: #6c757d;
+}
+
+.loading-spinner {
+  margin-bottom: 1rem;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .call-chain-item {
+    max-width: 100%;
+  }
+  
+  .function-card {
+    padding: 0.75rem;
+  }
+  
+  .function-name {
+    font-size: 1rem;
+  }
+  
+  .function-stats {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .stat-item {
+    min-width: 50px;
+    padding: 0.375rem;
+  }
+}
+
+/* 深色模式适配 */
+@media (prefers-color-scheme: dark) {
+  .call-chain-visual {
+    background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+  }
+  
+  .function-card {
+    background: #2d3748;
+    border-color: #4a5568;
+    color: #e2e8f0;
+  }
+  
+  .function-card.current {
+    border-color: #4299e1;
+    background: linear-gradient(135deg, rgba(66, 153, 225, 0.1) 0%, rgba(66, 153, 225, 0.2) 100%);
+  }
+  
+  .function-card.caller {
+    border-color: #48bb78;
+    background: linear-gradient(135deg, rgba(72, 187, 120, 0.1) 0%, rgba(72, 187, 120, 0.2) 100%);
+  }
+  
+  .function-card.callee {
+    border-color: #ed8936;
+    background: linear-gradient(135deg, rgba(237, 137, 54, 0.1) 0%, rgba(237, 137, 54, 0.2) 100%);
+  }
+  
+  .function-name {
+    color: #e2e8f0;
+  }
+  
+  .function-location {
+    color: #a0aec0;
+  }
+  
+  .stat-item {
+    background: rgba(255, 255, 255, 0.05);
+  }
+  
+  .stat-value {
+    color: #4299e1;
+  }
+  
+  .stat-label {
+    color: #a0aec0;
+  }
+}
+
+/* 新增的UI增强样式 */
+
+/* 渐变背景 */
+.bg-gradient-primary {
+  background: linear-gradient(135deg, #3498db, #2980b9) !important;
+}
+
+.bg-gradient-info {
+  background: linear-gradient(135deg, #17a2b8, #138496) !important;
+}
+
+/* 排名徽章 */
+.rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: linear-gradient(135deg, #3498db, #2980b9);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* 函数名样式 */
+.function-name {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.9rem;
+  color: #2c3e50;
+  background-color: rgba(52, 152, 219, 0.1);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  border-left: 3px solid #3498db;
+}
+
+/* 深度徽章 */
+.depth-badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  background-color: rgba(155, 89, 182, 0.1);
+  color: #9b59b6;
+  border: 1px solid rgba(155, 89, 182, 0.2);
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+/* 时间徽章 */
+.time-badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.execution-time {
+  background-color: rgba(46, 204, 113, 0.1);
+  color: #2ecc71;
+  border: 1px solid rgba(46, 204, 113, 0.2);
+}
+
+/* 卡片阴影增强 */
+.shadow-sm {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* 模态框样式增强 */
+.modal-content.shadow {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* 按钮样式增强 */
+.btn-outline-secondary {
+  border-width: 1.5px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn-outline-secondary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(108, 117, 125, 0.3);
+}
+
+/* 表格头部图标样式 */
+.table thead th i {
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+
+/* 响应式优化 */
+@media (max-width: 768px) {
+  .function-name {
+    font-size: 0.8rem;
+  }
+  
+  .time-badge {
+    font-size: 0.75rem;
+  }
+  
+  .depth-badge {
+    font-size: 0.75rem;
+  }
+} 

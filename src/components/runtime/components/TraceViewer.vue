@@ -122,23 +122,37 @@
                   <div class="d-flex justify-content-between align-items-center mt-3">
                     <div>
                       显示 {{ (filesPage - 1) * filesLimit + 1 }} - {{ Math.min(filesPage * filesLimit, filesTotal) }} 条，共 {{ filesTotal }} 条
+                      <span v-if="filesTotalPages > 1" class="ms-2">（共 {{ filesTotalPages }} 页）</span>
                     </div>
                     <nav aria-label="文件列表分页">
                       <ul class="pagination mb-0">
                         <li class="page-item" :class="{ disabled: filesPage === 1 }">
-                          <a class="page-link" href="#" @click.prevent="changePage(1)">首页</a>
+                          <a class="page-link" href="#" @click.prevent="changePage(1)" title="首页">
+                            <i class="bi bi-chevron-double-left"></i>
+                          </a>
                         </li>
                         <li class="page-item" :class="{ disabled: filesPage === 1 }">
                           <a class="page-link" href="#" @click.prevent="changePage(filesPage - 1)">上一页</a>
                         </li>
+                        
+                        <!-- 显示省略号和页码 -->
+                        <li v-if="displayedFilesPages[0] > 1" class="page-item disabled">
+                          <span class="page-link">...</span>
+                        </li>
                         <li v-for="page in displayedFilesPages" :key="page" class="page-item" :class="{ active: page === filesPage }">
                           <a class="page-link" href="#" @click.prevent="changePage(page)">{{ page }}</a>
                         </li>
+                        <li v-if="displayedFilesPages[displayedFilesPages.length - 1] < filesTotalPages" class="page-item disabled">
+                          <span class="page-link">...</span>
+                        </li>
+                        
                         <li class="page-item" :class="{ disabled: filesPage === filesTotalPages }">
                           <a class="page-link" href="#" @click.prevent="changePage(filesPage + 1)">下一页</a>
                         </li>
                         <li class="page-item" :class="{ disabled: filesPage === filesTotalPages }">
-                          <a class="page-link" href="#" @click.prevent="changePage(filesTotalPages)">末页</a>
+                          <a class="page-link" href="#" @click.prevent="changePage(filesTotalPages)" title="末页">
+                            <i class="bi bi-chevron-double-right"></i>
+                          </a>
                         </li>
                       </ul>
                     </nav>
@@ -175,19 +189,12 @@
         </div>
       </div>
 
-      <!-- 标签页导航 -->
-      <ul class="nav nav-tabs mb-4">
-        <li class="nav-item">
-          <router-link to="/runtime-analysis" class="nav-link" active-class="active">
-            <i class="bi bi-activity me-1"></i> {{ $t('runtimeAnalysis.tabs.runtimeAnalysis') }}
-          </router-link>
-        </li>
-        <li class="nav-item">
-          <router-link to="/function-analysis" class="nav-link" active-class="active">
-            <i class="bi bi-search me-1"></i> {{ $t('runtimeAnalysis.tabs.functionAnalysis') }}
-          </router-link>
-        </li>
-      </ul>
+      <!-- 页面标题 -->
+      <div class="mb-4">
+        <h4 class="text-primary">
+          <i class="bi bi-activity me-2"></i>{{ $t('runtimeAnalysis.tabs.runtimeAnalysis') }}
+        </h4>
+      </div>
 
       <!-- 子路由视图 -->
       <router-view :project-path="projectPath" :db-path="dbPath" :current-file-name="currentFileName"></router-view>
@@ -339,10 +346,30 @@ export default {
     displayedFilesPages() {
       const pages = [];
       const maxVisiblePages = 5;
+      
+      // 如果总页数小于等于最大显示页数，显示所有页
+      if (this.filesTotalPages <= maxVisiblePages) {
+        for (let i = 1; i <= this.filesTotalPages; i++) {
+          pages.push(i);
+        }
+        return pages;
+      }
+      
+      // 计算起始和结束页码
       let startPage = Math.max(1, this.filesPage - Math.floor(maxVisiblePages / 2));
       let endPage = Math.min(this.filesTotalPages, startPage + maxVisiblePages - 1);
       
+      // 调整起始页码，确保显示足够的页码
       if (endPage - startPage + 1 < maxVisiblePages) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+      }
+      
+      // 确保当前页在显示范围内
+      if (this.filesPage < startPage) {
+        startPage = Math.max(1, this.filesPage - Math.floor(maxVisiblePages / 2));
+        endPage = Math.min(this.filesTotalPages, startPage + maxVisiblePages - 1);
+      } else if (this.filesPage > endPage) {
+        endPage = Math.min(this.filesTotalPages, this.filesPage + Math.floor(maxVisiblePages / 2));
         startPage = Math.max(1, endPage - maxVisiblePages + 1);
       }
       
@@ -451,7 +478,12 @@ export default {
           description: file.description
         }));
         this.filesTotal = parseInt(response.data.total || '0', 10);
-        this.filesTotalPages = Math.ceil(this.filesTotal / this.filesLimit) || 1;
+        this.filesTotalPages = Math.max(1, Math.ceil(this.filesTotal / this.filesLimit));
+        
+        // 确保当前页码不超过总页数
+        if (this.filesPage > this.filesTotalPages && this.filesTotalPages > 0) {
+          this.filesPage = this.filesTotalPages;
+        }
       } catch (error) {
         console.error('获取文件列表失败:', error);
         this.showMessage('获取文件列表失败', 'error');
@@ -465,7 +497,8 @@ export default {
     
     // 切换文件列表页码
     changePage(page) {
-      if (page < 1 || page > this.filesTotalPages) return;
+      // 确保页码在有效范围内且不是当前页
+      if (page < 1 || page > this.filesTotalPages || page === this.filesPage) return;
       this.filesPage = page;
       this.fetchFiles();
     },
@@ -674,81 +707,6 @@ export default {
 };
 </script>
 
-<style scoped>
-.nav-tabs .nav-link {
-  font-weight: 500;
-  color: #6c757d;
-  padding: 0.75rem 1.25rem;
-  border-radius: 0;
-  transition: all 0.2s ease;
-}
-
-.nav-tabs .nav-link.active {
-  color: #0d6efd;
-  border-bottom: 2px solid #0d6efd;
-  background-color: transparent;
-}
-
-.nav-tabs .nav-link:hover:not(.active) {
-  background-color: rgba(13, 110, 253, 0.05);
-  border-color: transparent;
-}
-
-/* 消息提示样式 */
-.message-container {
-  position: fixed;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 9999;
-  width: 100%;
-  max-width: 500px;
-  pointer-events: none;
-}
-
-.message-box {
-  padding: 15px 20px;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  animation: slide-down 0.3s ease;
-  pointer-events: auto;
-}
-
-.message-info {
-  background-color: #e8f4fd;
-  border-left: 4px solid #0d6efd;
-  color: #0d6efd;
-}
-
-.message-success {
-  background-color: #e8f8f0;
-  border-left: 4px solid #198754;
-  color: #198754;
-}
-
-.message-error {
-  background-color: #fdf0ef;
-  border-left: 4px solid #dc3545;
-  color: #dc3545;
-}
-
-.message-warning {
-  background-color: #fff8e6;
-  border-left: 4px solid #ffc107;
-  color: #ffc107;
-}
-
-@keyframes slide-down {
-  from {
-    transform: translateY(-20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
+<style>
+@import url("../../../assets/styles/components/runtime/trace-viewer.css");
 </style>

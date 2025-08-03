@@ -1,0 +1,47 @@
+/* TreeNode 组件样式 */
+.tree-node {
+  padding: 4px 0;
+}
+
+.toggle-icon {
+  cursor: pointer;
+  color: var(--primary-color);
+  transition: var(--transition-fast);
+}
+
+.toggle-icon:hover {
+  color: var(--secondary-color);
+  transform: scale(1.1);
+}
+
+.node-content {
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: var(--border-radius-sm);
+  transition: var(--transition-fast);
+}
+
+.node-content:hover {
+  background-color: rgba(13, 110, 253, 0.1);
+}
+
+.node-content.selected {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.children-container {
+  border-left: 1px dashed var(--border-color);
+  margin-left: 0.5rem;
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+  .node-content:hover {
+    background-color: rgba(52, 152, 219, 0.2);
+  }
+  
+  .children-container {
+    border-left-color: #495057;
+  }
+} 

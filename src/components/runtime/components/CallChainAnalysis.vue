@@ -205,19 +205,6 @@ export default {
 };
 </script>
 
-<style scoped>
-.call-chain-analysis .chart-container {
-  height: 600px;
-  width: 100%;
-}
-
-.call-chain-analysis .controls {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-.call-chain-analysis .text-truncate {
-  display: inline-block;
-}
+<style>
+@import url("../../../assets/styles/components/runtime/call-chain-analysis.css");
 </style> 

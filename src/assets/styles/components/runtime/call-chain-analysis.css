@@ -1,0 +1,19 @@
+/* CallChainAnalysis 组件样式 */
+
+/* 图表容器 */
+.call-chain-analysis .chart-container {
+  height: 600px;
+  width: 100%;
+}
+
+/* 控制区域 */
+.call-chain-analysis .controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* 文本截断 */
+.call-chain-analysis .text-truncate {
+  display: inline-block;
+} 

@@ -59,34 +59,6 @@ export default defineComponent({
 });
 </script>
 
-<style scoped>
-.tree-node {
-  padding: 4px 0;
-}
-
-.toggle-icon {
-  cursor: pointer;
-  color: var(--bs-primary);
-}
-
-.node-content {
-  cursor: pointer;
-  padding: 2px 4px;
-  border-radius: 4px;
-}
-
-.node-content:hover {
-  background-color: rgba(13, 110, 253, 0.1);
-}
-
-/* 深色模式支持 */
-@media (prefers-color-scheme: dark) {
-  .toggle-icon {
-    color: #5b9aff;
-  }
-  
-  .node-content:hover {
-    background-color: rgba(91, 154, 255, 0.15);
-  }
-}
+<style>
+@import url("../../../assets/styles/components/common/tree-node.css");
 </style> 
