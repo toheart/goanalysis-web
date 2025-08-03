@@ -537,7 +537,7 @@ export default {
     const parameters = ref([]);
     const paramMaxLength = 200;
     const jsonViewerOptions = {
-      expanded: 0,
+      expanded: 1,
       copyable: true,
       sort: false,
       boxed: true,
