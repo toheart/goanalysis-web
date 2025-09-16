@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue';
 import axios from 'axios';
+import { ensureAnalysisPath } from '../../../config/api.js';
 
 export function useTraceData(gid, onDataProcessed = null) {
   // 响应式数据
@@ -24,10 +25,7 @@ export function useTraceData(gid, onDataProcessed = null) {
     functionCount: functionCount.value
   }));
   
-  // 获取当前数据库路径
-  const getCurrentDbPath = () => {
-    return localStorage.getItem('verifiedProjectPath') || '';
-  };
+
   
   // 严格去重数据的方法
   const deduplicateTraceData = () => {
@@ -154,13 +152,10 @@ export function useTraceData(gid, onDataProcessed = null) {
       return;
     }
     
-    const dbPath = getCurrentDbPath();
-    if (!dbPath) {
-      console.error('数据库路径未设置');
-      return;
-    }
-    
     try {
+      // 确保session中有分析路径
+      await ensureAnalysisPath();
+      
       isFetching.value = true;
       loading.value = true;
       
@@ -171,7 +166,6 @@ export function useTraceData(gid, onDataProcessed = null) {
       console.log(`开始获取追踪详情，gid: ${gid.value}, depth: ${depth.value}`);
       
       const response = await axios.post(`/api/runtime/traces/${gid.value}`, {
-        dbpath: dbPath,
         depth: depth.value
       });
       

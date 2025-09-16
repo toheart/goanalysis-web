@@ -463,6 +463,7 @@ import { ref, onMounted, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { Modal } from 'bootstrap';
 import axios from 'axios';
+import { ensureAnalysisPath } from '../../../config/api.js';
 
 // Composables
 import { useTraceData } from '../composables/useTraceData';
@@ -725,17 +726,23 @@ export default {
     // 查看参数
     const viewParameters = async (id) => {
       try {
-        const dbpath = localStorage.getItem('verifiedProjectPath');
-        if (!dbpath) {
-          console.error('数据库路径为空');
-          return;
-        }
+        // 确保session中有分析路径
+        await ensureAnalysisPath();
         
-        const response = await axios.post(`/api/runtime/params/${id}`, {
-          dbpath: dbpath
+        const response = await axios.post(`/api/runtime/params/${id}`, {});
+        
+        // 按接口返回的 pos 字段进行排序，确保展示顺序与参数位置一致
+        const rawParams = Array.isArray(response.data.params) ? response.data.params : [];
+        const sortedParams = rawParams.slice().sort((a, b) => {
+          const posA = Number(a?.pos);
+          const posB = Number(b?.pos);
+          if (isNaN(posA) && isNaN(posB)) return 0;
+          if (isNaN(posA)) return 1;
+          if (isNaN(posB)) return -1;
+          return posA - posB;
         });
         
-        parameters.value = (response.data.params || []).map(param => {
+        parameters.value = sortedParams.map(param => {
           const isLong = param.param && param.param.length > paramMaxLength;
           
           let isJson = false;
@@ -915,7 +922,6 @@ export default {
       
       try {
         const response = await axios.post('/api/runtime/function/info', {
-          dbpath: dbPath.value,
           gid: gid.value,
           functionId: nodeId
         });
@@ -966,7 +972,7 @@ export default {
     const buildMindMapData = (targetNode) => {
       const mindMapData = {
         id: targetNode.id,
-        name: targetNode.name,
+        name: formatFunctionName(targetNode.name, getCurrentModule()),
         level: targetNode.indent || 0,
         children: [],
         metadata: {
@@ -987,7 +993,7 @@ export default {
         children.forEach(child => {
           const childData = {
             id: child.id,
-            name: child.name,
+            name: formatFunctionName(child.name, getCurrentModule()),
             level: child.indent || 0,
             children: [],
             metadata: {

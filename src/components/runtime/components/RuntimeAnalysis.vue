@@ -281,6 +281,7 @@ import CallChainModal from './CallChainModal.vue';
 import FunctionAnalysis from './FunctionAnalysis.vue';
 import ModuleSelector from './ModuleSelector.vue';
 import { formatFunctionName } from '../utils/functionNameUtils.js';
+import { ensureAnalysisPath } from '../../../config/api.js';
 
 export default {
   name: 'RuntimeAnalysis',
@@ -361,15 +362,21 @@ export default {
       currentCallChain: []
     };
   },
-  mounted() {
+  async mounted() {
     this.isComponentMounted = true;
     
-
-    
-    // 初始化数据
-    this.initializeData();
-    
-
+    // 在组件挂载时立即初始化session（确保只调用一次）
+    try {
+      console.log('🚀 RuntimeAnalysis mounted - 初始化session');
+      await ensureAnalysisPath();
+      console.log('✅ Session初始化完成，开始加载数据');
+      
+      // 初始化数据
+      this.initializeData();
+    } catch (error) {
+      console.error('❌ Session初始化失败:', error);
+      this.showMessage(`Session初始化失败: ${error.message}`, 'error');
+    }
     
     // 添加语言变化监听
     window.addEventListener('languageChanged', this.handleLanguageChange);
@@ -455,9 +462,20 @@ export default {
     },
     
     // 初始化数据
-    initializeData() {
-      this.fetchGIDs();
-      this.fetchHotFunctions();
+    async initializeData() {
+      try {
+        console.log('📊 开始获取运行时数据...');
+        // 并行获取数据（session已经在mounted中初始化）
+        await Promise.all([
+          this.fetchGIDs(),
+          this.fetchHotFunctions()
+        ]);
+        
+        console.log('✅ RuntimeAnalysis 数据初始化完成');
+      } catch (error) {
+        console.error('❌ RuntimeAnalysis 初始化失败:', error);
+        this.showMessage(`初始化失败: ${error.message}`, 'error');
+      }
     },
     
     // 获取当前数据库路径
@@ -473,13 +491,6 @@ export default {
     async fetchGIDs() {
       try {
         this.loading = true;
-        const dbpath = this.getCurrentDbPath();
-        
-        if (!dbpath) {
-          this.showMessage('database path is empty', 'error');
-          this.loading = false;
-          return;
-        }
         
         // 调用API获取GID列表
         const response = await fetch('/api/runtime/gids', {
@@ -490,8 +501,7 @@ export default {
           body: JSON.stringify({
             page: this.currentPage,
             limit: this.limit,
-            includeMetrics: true,
-            dbpath: dbpath
+            includeMetrics: true
           })
         });
         
@@ -526,20 +536,12 @@ export default {
     // 获取Goroutine统计信息
     async fetchGoroutineStats() {
       try {
-        const dbpath = this.getCurrentDbPath();
-        
-        if (!dbpath) {
-          return;
-        }
-        
         const response = await fetch('/api/runtime/goroutine-stats', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({
-            dbpath: dbpath
-          })
+          body: JSON.stringify({})
         });
         
         if (!response.ok) {
@@ -588,13 +590,6 @@ export default {
     async fetchHotFunctions() {
       try {
         this.loading = true;
-        const dbpath = this.getCurrentDbPath();
-        
-        if (!dbpath) {
-          this.showMessage('database path is empty', 'error');
-          this.loading = false;
-          return;
-        }
         
         // 调用API获取热点函数列表
         const response = await fetch('/api/runtime/hot-functions', {
@@ -604,8 +599,7 @@ export default {
           },
           body: JSON.stringify({
             limit: 10,
-            sortBy: this.hotFunctionSortBy,
-            dbpath: dbpath
+            sortBy: this.hotFunctionSortBy
           })
         });
         

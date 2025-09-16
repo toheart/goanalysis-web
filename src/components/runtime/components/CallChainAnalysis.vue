@@ -141,10 +141,10 @@ export default {
 
     // 监听属性变化
     watch(
-      [() => props.dbPath, () => props.functionName],
-      async ([newDbPath, newFunctionName]) => {
-        if (newDbPath && newFunctionName) {
-          await loadCallChainData(newDbPath, newFunctionName);
+      () => props.functionName,
+      async (newFunctionName) => {
+        if (newFunctionName) {
+          await loadCallChainData(null, newFunctionName);
         }
       },
       { immediate: true }

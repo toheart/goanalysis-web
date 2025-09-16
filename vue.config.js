@@ -7,7 +7,7 @@ const getApiUrl = () => {
     return process.env.VUE_APP_API_URL;
   }
   // 回退到默认配置
-  return process.env.VUE_APP_API_URL || 'http://127.0.0.1:8000';
+  return process.env.VUE_APP_API_URL || 'http://localhost:8081';
 };
 
 module.exports = defineConfig({
@@ -24,6 +24,37 @@ module.exports = defineConfig({
       '/api': {
         target: getApiUrl(),
         changeOrigin: true,
+        secure: false,
+        // 修正Cookie域名重写配置
+        cookieDomainRewrite: {
+          '192.168.141.128': 'localhost',
+          '*': 'localhost'
+        },
+        // 修正Cookie路径重写
+        cookiePathRewrite: {
+          '*': '/'
+        },
+        onProxyReq: (proxyReq, req, res) => {
+          // 确保代理请求包含原始的cookie
+          if (req.headers.cookie) {
+            proxyReq.setHeader('cookie', req.headers.cookie);
+          }
+          // 设置正确的Origin头
+          proxyReq.setHeader('Origin', getApiUrl());
+        },
+        onProxyRes: (proxyRes, req, res) => {
+          // 处理Set-Cookie响应头，确保Cookie能在localhost域下工作
+          const setCookieHeaders = proxyRes.headers['set-cookie'];
+          if (setCookieHeaders) {
+            proxyRes.headers['set-cookie'] = setCookieHeaders.map(cookie => {
+              // 移除Domain限制或设置为localhost
+              return cookie
+                .replace(/Domain=[^;]+;?\s*/gi, 'Domain=localhost; ')
+                .replace(/Secure;?\s*/gi, '') // 开发环境移除Secure标志
+                .replace(/SameSite=None/gi, 'SameSite=Lax'); // 调整SameSite策略
+            });
+          }
+        }
       },
     },
   }
