@@ -11,6 +11,106 @@ export const sessionAPI = {
   }
 };
 
+/**
+ * 静态分析API
+ * 注意：根据OpenAPI规范，这些API不需要dbPath参数，
+ * 应该是基于session中已设置的分析路径进行操作
+ * 
+ * 在调用这些API之前，需要确保已经通过 analyzeDbFile 设置了当前的分析数据库
+ */
+export const staticAnalysisAPI = {
+  // 获取全局统计信息
+  async getGlobalStatistics() {
+    const response = await axios.get('/api/static/viz/statistics');
+    return response.data;
+  },
+
+  // 获取热点函数
+  async getHotFunctions(limit = 50, sortBy = 'importance') {
+    const response = await axios.get('/api/static/viz/hotfunctions', {
+      params: { limit, sortBy }
+    });
+    return response.data;
+  },
+
+  // 搜索函数
+  async searchFunctions(query) {
+    const response = await axios.post('/api/static/search-functions', {
+      query
+    });
+    return response.data;
+  },
+
+  // 获取函数详情
+  async getFunctionDetails(functionKey) {
+    const response = await axios.get(`/api/static/viz/function/${encodeURIComponent(functionKey)}`);
+    return response.data;
+  },
+
+  // 获取调用图
+  async getCallGraph(rootFunction, maxDepth = 5, includeExternal = false) {
+    const response = await axios.post('/api/static/viz/callgraph', {
+      rootFunction,
+      maxDepth,
+      includeExternal
+    });
+    return response.data;
+  },
+
+  // 获取函数调用路径
+  async getFunctionCallPaths(fromFunction, toFunction, maxPaths = 10, maxDepth = 10) {
+    const response = await axios.post('/api/static/viz/callpaths', {
+      fromFunction,
+      toFunction,
+      maxPaths,
+      maxDepth
+    });
+    return response.data;
+  },
+
+  // 获取包依赖关系
+  async getPackageDependencies() {
+    const response = await axios.get('/api/static/viz/packages');
+    return response.data;
+  },
+
+  // 分析数据库文件 (现有API) - 设置当前分析数据库
+  async analyzeDbFile(dbPath) {
+    const response = await axios.post('/api/static/analyze', {
+      dbPath
+    });
+    return response.data;
+  },
+
+  // 检查当前session是否有有效的数据库设置
+  async checkSession() {
+    try {
+      // 尝试获取统计信息来验证session是否有效
+      await this.getGlobalStatistics();
+      return true;
+    } catch (error) {
+      console.warn('Session invalid or no database set:', error);
+      return false;
+    }
+  },
+
+  // 获取静态分析数据库文件列表
+  async getStaticDbFiles() {
+    const response = await axios.get('/api/static/dbfiles');
+    return response.data;
+  },
+
+  // 获取 Init 函数列表
+  async getInitFunctions(limit, packageFilter) {
+    const params = {};
+    if (limit) params.limit = limit;
+    if (packageFilter) params.packageFilter = packageFilter;
+    
+    const response = await axios.get('/api/static/viz/initfunctions', { params });
+    return response.data;
+  }
+};
+
 // 缓存分析路径状态，避免重复调用
 let sessionPathCache = null;
 let sessionCheckPromise = null;

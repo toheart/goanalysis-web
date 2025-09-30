@@ -589,10 +589,6 @@ paths:
                   required: true
                   schema:
                     type: string
-                - name: dbPath
-                  in: query
-                  schema:
-                    type: string
             responses:
                 "200":
                     description: OK
@@ -607,10 +603,6 @@ paths:
             description: 获取热点函数分析
             operationId: StaticAnalysis_GetHotFunctions
             parameters:
-                - name: dbPath
-                  in: query
-                  schema:
-                    type: string
                 - name: limit
                   in: query
                   schema:
@@ -627,17 +619,35 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/staticanalysis.v1.GetHotFunctionsResponse'
+    /api/static/viz/initfunctions:
+        get:
+            tags:
+                - StaticAnalysis
+            description: 获取Init函数列表
+            operationId: StaticAnalysis_GetInitFunctions
+            parameters:
+                - name: limit
+                  in: query
+                  schema:
+                    type: integer
+                    format: int32
+                - name: packageFilter
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/staticanalysis.v1.GetInitFunctionsResponse'
     /api/static/viz/packages:
         get:
             tags:
                 - StaticAnalysis
             description: 获取包依赖关系
             operationId: StaticAnalysis_GetPackageDependencies
-            parameters:
-                - name: dbPath
-                  in: query
-                  schema:
-                    type: string
             responses:
                 "200":
                     description: OK
@@ -651,11 +661,6 @@ paths:
                 - StaticAnalysis
             description: 获取全局统计信息
             operationId: StaticAnalysis_GetGlobalStatistics
-            parameters:
-                - name: dbPath
-                  in: query
-                  schema:
-                    type: string
             responses:
                 "200":
                     description: OK
@@ -1341,8 +1346,6 @@ components:
         staticanalysis.v1.GetCallGraphRequest:
             type: object
             properties:
-                dbPath:
-                    type: string
                 rootFunction:
                     type: string
                 maxDepth:
@@ -1374,8 +1377,6 @@ components:
         staticanalysis.v1.GetFunctionCallPathsRequest:
             type: object
             properties:
-                dbPath:
-                    type: string
                 fromFunction:
                     type: string
                 toFunction:
@@ -1446,6 +1447,17 @@ components:
                     items:
                         $ref: '#/components/schemas/staticanalysis.v1.DetailedHotFunction'
             description: 热点函数响应
+        staticanalysis.v1.GetInitFunctionsResponse:
+            type: object
+            properties:
+                initFunctions:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/staticanalysis.v1.InitFunction'
+                totalCount:
+                    type: integer
+                    format: int32
+            description: 获取Init函数列表响应
         staticanalysis.v1.GetPackageDependenciesResponse:
             type: object
             properties:
@@ -1527,6 +1539,24 @@ components:
                     type: number
                     format: float
             description: 热点函数信息
+        staticanalysis.v1.InitFunction:
+            type: object
+            properties:
+                key:
+                    type: string
+                name:
+                    type: string
+                package:
+                    type: string
+                position:
+                    $ref: '#/components/schemas/staticanalysis.v1.NodePosition'
+                signature:
+                    type: string
+                doc:
+                    type: string
+                fullName:
+                    type: string
+            description: Init函数信息
         staticanalysis.v1.NodeMetrics:
             type: object
             properties:
@@ -1616,8 +1646,6 @@ components:
         staticanalysis.v1.SearchFunctionsRequest:
             type: object
             properties:
-                dbPath:
-                    type: string
                 query:
                     type: string
             description: 模糊搜索函数请求
