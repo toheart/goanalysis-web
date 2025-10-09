@@ -1,5 +1,9 @@
 <template>
   <div class="static-overview">
+    <div class="debug-info mb-3 p-2 bg-light border">
+      <small>调试信息: dbPath={{ dbPath }}, loading={{ loading }}, topPackages={{ topPackages.length }}, hotFunctions={{ hotFunctions.length }}</small>
+    </div>
+    
     <!-- 全局统计卡片 -->
     <div class="row mb-4">
       <div class="col-md-3 col-6">
@@ -7,7 +11,7 @@
           <div class="stat-icon">
             <i class="bi bi-code-square"></i>
           </div>
-          <div class="stat-value">{{ stats.totalFunctions || 0 }}</div>
+          <div class="stat-value">{{ stats.totalFunctions || stats.total_functions || 0 }}</div>
           <div class="stat-label">总函数数</div>
         </div>
       </div>
@@ -16,7 +20,7 @@
           <div class="stat-icon">
             <i class="bi bi-folder2"></i>
           </div>
-          <div class="stat-value">{{ stats.totalPackages || 0 }}</div>
+          <div class="stat-value">{{ stats.totalPackages || stats.total_packages || 0 }}</div>
           <div class="stat-label">包数量</div>
         </div>
       </div>
@@ -25,7 +29,7 @@
           <div class="stat-icon">
             <i class="bi bi-arrow-left-right"></i>
           </div>
-          <div class="stat-value">{{ stats.totalEdges || 0 }}</div>
+          <div class="stat-value">{{ stats.totalEdges || stats.total_edges || 0 }}</div>
           <div class="stat-label">调用关系</div>
         </div>
       </div>
@@ -34,7 +38,7 @@
           <div class="stat-icon">
             <i class="bi bi-layers"></i>
           </div>
-          <div class="stat-value">{{ stats.maxCallDepth || 0 }}</div>
+          <div class="stat-value">{{ stats.maxCallDepth || stats.max_call_depth || 0 }}</div>
           <div class="stat-label">最大调用深度</div>
         </div>
       </div>
@@ -46,10 +50,34 @@
       <div class="col-lg-6 mb-4">
         <div class="card">
           <div class="card-header">
-            <h6 class="mb-0"><i class="bi bi-bar-chart me-2"></i>包统计分布</h6>
+            <h6 class="mb-0"><i class="bi bi-bar-chart me-2"></i>包统计分布 (Top 10)</h6>
           </div>
           <div class="card-body">
-            <div ref="packageChart" style="width: 100%; height: 300px;"></div>
+            <div v-if="loading" class="text-center py-3">
+              <div class="spinner-border spinner-border-sm" role="status"></div>
+              <span class="ms-2">加载中...</span>
+            </div>
+            <div v-else-if="topPackages.length" class="package-chart">
+              <div 
+                v-for="pkg in topPackages" 
+                :key="pkg.packageName" 
+                class="chart-bar-item"
+              >
+                <div class="bar-label">{{ formatPackageName(pkg.packageName) }}</div>
+                <div class="bar-container">
+                  <div 
+                    class="bar-fill" 
+                    :style="{ width: calculateBarWidth(pkg.functionCount) + '%' }"
+                    :title="`${pkg.functionCount} 个函数`"
+                  >
+                    <span class="bar-value">{{ pkg.functionCount }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-else class="text-center text-muted py-3">
+              暂无包统计数据
+            </div>
           </div>
         </div>
       </div>
@@ -68,9 +96,9 @@
               <div class="spinner-border spinner-border-sm" role="status"></div>
               <span class="ms-2">加载中...</span>
             </div>
-            <div v-else-if="hotFunctions.length" class="hot-functions-list">
+            <div v-else-if="normalizedHotFunctions.length" class="hot-functions-list">
               <div 
-                v-for="func in hotFunctions.slice(0, 10)" 
+                v-for="func in normalizedHotFunctions.slice(0, 10)" 
                 :key="func.key" 
                 class="function-item d-flex justify-content-between align-items-center"
                 @click="$emit('view-function-detail', func)"
@@ -96,11 +124,10 @@
 </template>
 
 <script>
-import * as echarts from 'echarts'
 import { staticAnalysisAPI } from '../../config/api'
 
 export default {
-  name: 'StaticOverview',
+  name: 'GlobalStatsWidget',
   props: {
     dbPath: {
       type: String,
@@ -112,16 +139,74 @@ export default {
     return {
       loading: false,
       stats: {},
-      hotFunctions: [],
-      packageChart: null
+      hotFunctions: []
+    }
+  },
+  computed: {
+    // 计算 Top 10 包
+    topPackages() {
+      console.log('Computing topPackages, stats:', this.stats)
+      // 兼容蛇形命名和驼峰命名
+      const packageStats = this.stats.packageStats || this.stats.package_stats
+      console.log('packageStats:', packageStats)
+      
+      if (!packageStats || !Array.isArray(packageStats)) {
+        console.warn('No package stats data available', {
+          hasStats: !!this.stats,
+          hasPackageStats: !!this.stats.packageStats,
+          hasPackage_stats: !!this.stats.package_stats,
+          statsKeys: this.stats ? Object.keys(this.stats) : []
+        })
+        return []
+      }
+      
+      const filtered = packageStats
+        .filter(p => {
+          // 兼容不同的字段命名
+          const pkgName = p.packageName || p.package_name
+          const funcCount = p.functionCount ?? p.function_count
+          return p && pkgName && typeof funcCount === 'number'
+        })
+        .map(p => ({
+          packageName: p.packageName || p.package_name,
+          functionCount: p.functionCount ?? p.function_count
+        }))
+        .slice(0, 10)
+      
+      console.log('Filtered top packages:', filtered.length, filtered)
+      return filtered
+    },
+    // 获取最大函数数量用于计算柱状图宽度
+    maxFunctionCount() {
+      if (this.topPackages.length === 0) return 0
+      return Math.max(...this.topPackages.map(p => p.functionCount))
+    },
+    // 规范化热点函数，兼容蛇形和驼峰命名
+    normalizedHotFunctions() {
+      return this.hotFunctions.map(func => ({
+        key: func.key,
+        name: func.name,
+        package: func.package,
+        callerCount: func.callerCount ?? func.caller_count ?? 0,
+        calleeCount: func.calleeCount ?? func.callee_count ?? 0
+      }))
+    }
+  },
+  watch: {
+    // 监听 dbPath 变化，自动重新加载数据
+    dbPath(newPath, oldPath) {
+      console.log('GlobalStatsWidget: dbPath changed from', oldPath, 'to', newPath)
+      if (newPath && newPath !== oldPath) {
+        this.loadOverviewData()
+      }
     }
   },
   mounted() {
-    this.loadOverviewData()
-  },
-  beforeUnmount() {
-    if (this.packageChart) {
-      this.packageChart.dispose()
+    console.log('GlobalStatsWidget mounted, dbPath:', this.dbPath)
+    if (this.dbPath) {
+      this.loadOverviewData()
+    } else {
+      console.warn('GlobalStatsWidget mounted but no dbPath provided')
     }
   },
   methods: {
@@ -137,18 +222,17 @@ export default {
         this.stats = stats
         this.hotFunctions = hotFunctionsData.functions || []
         
-        // 调试：打印统计数据结构
+        // 调试日志: 打印统计数据结构
         console.log('Statistics data:', stats)
         console.log('Hot functions data:', hotFunctionsData)
-        
-        this.$nextTick(() => {
-          this.initPackageChart()
-        })
+        console.log('Package stats array:', this.stats.packageStats)
+        console.log('Top packages computed:', this.topPackages)
+        console.log('Max function count:', this.maxFunctionCount)
       } catch (error) {
-        console.error('加载概览数据失败:', error)
+        console.error('Failed to load overview data:', error)
         // 如果是因为没有设置数据库导致的错误，尝试重新设置数据库
         if (error.response && (error.response.status === 404 || error.response.status === 500)) {
-          console.warn('可能需要先设置分析数据库，尝试重新设置...')
+          console.warn('Database may need setup, retrying...')
           await this.retryWithDatabaseSetup()
         }
       } finally {
@@ -156,83 +240,20 @@ export default {
       }
     },
 
-    initPackageChart() {
-      if (!this.$refs.packageChart) return
-
-      // 检查数据是否存在且为数组
-      if (!this.stats.packageStats || !Array.isArray(this.stats.packageStats) || this.stats.packageStats.length === 0) {
-        console.warn('Package stats data is not available or empty')
-        return
+    // 格式化包名（缩短长包名）
+    formatPackageName(pkgName) {
+      if (!pkgName) return ''
+      const parts = pkgName.split('/')
+      if (parts.length > 3) {
+        return '...' + parts.slice(-2).join('/')
       }
+      return pkgName
+    },
 
-      this.packageChart = echarts.init(this.$refs.packageChart)
-      
-      // 安全地处理数据，确保每个包统计对象都有必要的属性
-      const validPackageStats = this.stats.packageStats
-        .filter(p => p && p.packageName && typeof p.functionCount === 'number')
-        .slice(0, 10)
-
-      if (validPackageStats.length === 0) {
-        console.warn('No valid package stats data found')
-        return
-      }
-
-      const option = {
-        tooltip: {
-          trigger: 'axis',
-          axisPointer: {
-            type: 'shadow'
-          }
-        },
-        grid: {
-          left: '3%',
-          right: '4%',
-          bottom: '3%',
-          containLabel: true
-        },
-        xAxis: {
-          type: 'category',
-          data: validPackageStats.map(p => p.packageName),
-          axisLabel: {
-            rotate: 45,
-            fontSize: 10
-          }
-        },
-        yAxis: {
-          type: 'value'
-        },
-        series: [
-          {
-            name: '函数数量',
-            type: 'bar',
-            data: validPackageStats.map(p => p.functionCount),
-            itemStyle: {
-              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                { offset: 0, color: '#4785ff' },
-                { offset: 1, color: '#2684ff' }
-              ])
-            }
-          }
-        ]
-      }
-
-      try {
-        this.packageChart.setOption(option)
-        
-        // 响应式调整
-        window.addEventListener('resize', () => {
-          this.packageChart?.resize()
-        })
-      } catch (error) {
-        console.error('Error setting chart option:', error)
-        console.error('Chart data:', validPackageStats)
-        
-        // 如果图表初始化失败，销毁图表实例
-        if (this.packageChart) {
-          this.packageChart.dispose()
-          this.packageChart = null
-        }
-      }
+    // 计算柱状图宽度百分比
+    calculateBarWidth(count) {
+      if (this.maxFunctionCount === 0) return 0
+      return (count / this.maxFunctionCount) * 100
     },
 
     async retryWithDatabaseSetup() {
@@ -245,7 +266,7 @@ export default {
           this.loadOverviewData()
         }, 1000)
       } catch (error) {
-        console.error('重试设置数据库失败:', error)
+        console.error('Failed to retry database setup:', error)
       }
     }
   }
@@ -253,6 +274,16 @@ export default {
 </script>
 
 <style scoped>
+.static-overview {
+  width: 100%;
+  min-height: 400px;
+}
+
+.debug-info {
+  border-radius: 8px;
+  font-family: monospace;
+}
+
 .stat-card {
   text-align: center;
   padding: 1.5rem;
@@ -389,6 +420,71 @@ export default {
 }
 
 .hot-functions-list::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* 纯CSS柱状图样式 */
+.package-chart {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.chart-bar-item {
+  margin-bottom: 0.75rem;
+}
+
+.bar-label {
+  font-size: 0.75rem;
+  color: #495057;
+  margin-bottom: 0.25rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar-container {
+  background: #e9ecef;
+  border-radius: 6px;
+  height: 28px;
+  position: relative;
+  overflow: hidden;
+}
+
+.bar-fill {
+  background: linear-gradient(90deg, #4785ff 0%, #2684ff 100%);
+  height: 100%;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 0.5rem;
+  transition: width 0.5s ease;
+  min-width: 30px;
+}
+
+.bar-value {
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.package-chart::-webkit-scrollbar {
+  width: 4px;
+}
+
+.package-chart::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 2px;
+}
+
+.package-chart::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 2px;
+}
+
+.package-chart::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }
 </style>

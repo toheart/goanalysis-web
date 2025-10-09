@@ -108,6 +108,30 @@ export const staticAnalysisAPI = {
     
     const response = await axios.get('/api/static/viz/initfunctions', { params });
     return response.data;
+  },
+
+  // 分析项目路径 - 启动静态分析任务
+  async analyzeProjectPath(projectPath, algo = 'cha', ignoreMethod = false) {
+    const response = await axios.post('/api/static/analyze/path', {
+      path: projectPath,           // 字段名必须是 path
+      algo: algo,
+      ignore_method: ignoreMethod ? 'true' : ''  // 使用蛇形命名，类型是字符串
+    });
+    return response.data;
+  },
+
+  // 获取分析任务状态
+  async getAnalysisTaskStatus(taskId) {
+    const response = await axios.get(`/api/static/task/${taskId}/status`);
+    return response.data;
+  },
+
+  // 创建SSE连接获取实时分析进度
+  createAnalysisEventSource(taskId) {
+    const baseURL = axios.defaults.baseURL || '';
+    const url = `${baseURL}/api/static/analysis/${taskId}`;
+    console.log('Creating EventSource for:', url);
+    return new EventSource(url);
   }
 };
 

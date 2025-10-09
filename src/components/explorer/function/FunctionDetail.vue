@@ -207,7 +207,7 @@
 </template>
 
 <script>
-import { staticAnalysisAPI } from '../../config/api'
+import { staticAnalysisAPI } from '../../../config/api'
 
 export default {
   name: 'FunctionDetailDrawer',

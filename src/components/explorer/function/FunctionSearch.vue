@@ -32,7 +32,7 @@
         <div class="search-hints mt-2">
           <small class="text-muted">
             <i class="bi bi-lightbulb me-1"></i>
-            支持模糊搜索，可搜索函数名、包名等关键词
+            支持模糊搜索,可搜索函数名、包名等关键词
           </small>
         </div>
       </div>
@@ -182,8 +182,8 @@
 </template>
 
 <script>
-import { staticAnalysisAPI } from '../../config/api'
-import FunctionDetailDrawer from './FunctionDetailDrawer.vue'
+import { staticAnalysisAPI } from '../../../config/api'
+import FunctionDetailDrawer from './FunctionDetail.vue'
 
 export default {
   name: 'FunctionSearch',
@@ -249,7 +249,7 @@ export default {
         this.searchResults = data.functions || []
         this.addToHistory(this.searchQuery.trim())
       } catch (error) {
-        console.error('搜索函数失败:', error)
+        console.error('Failed to search functions:', error)
         this.searchResults = []
       } finally {
         this.loading = false

@@ -31,16 +31,6 @@
     </div>
 
     <div v-else-if="functions.length" class="functions-container">
-      <!-- 图表视图 -->
-      <div class="card mb-4">
-        <div class="card-header">
-          <h6 class="mb-0"><i class="bi bi-bar-chart me-2"></i>热点函数分布图</h6>
-        </div>
-        <div class="card-body">
-          <div ref="hotFunctionsChart" style="width: 100%; height: 400px;"></div>
-        </div>
-      </div>
-
       <!-- 表格视图 -->
       <div class="card">
         <div class="card-header">
@@ -62,7 +52,7 @@
               </thead>
               <tbody>
                 <tr 
-                  v-for="(func, index) in functions" 
+                  v-for="(func, index) in normalizedFunctions" 
                   :key="func.key"
                   class="function-row"
                   @click="viewFunctionDetail(func)"
@@ -127,12 +117,11 @@
 </template>
 
 <script>
-import * as echarts from 'echarts'
 import { staticAnalysisAPI } from '../../config/api'
-import FunctionDetailDrawer from './FunctionDetailDrawer.vue'
+import FunctionDetailDrawer from '../explorer/function/FunctionDetail.vue'
 
 export default {
-  name: 'HotFunctionsList',
+  name: 'HotFunctionsWidget',
   components: {
     FunctionDetailDrawer
   },
@@ -148,17 +137,36 @@ export default {
       functions: [],
       sortBy: 'importance',
       limit: 20,
-      chart: null,
       showDetailDrawer: false,
       selectedFunctionKey: ''
     }
   },
-  mounted() {
-    this.loadHotFunctions()
+  computed: {
+    // 规范化函数列表，兼容蛇形和驼峰命名
+    normalizedFunctions() {
+      return this.functions.map(func => ({
+        key: func.key,
+        name: func.name,
+        package: func.package,
+        signature: func.signature,
+        callerCount: func.callerCount ?? func.caller_count ?? 0,
+        calleeCount: func.calleeCount ?? func.callee_count ?? 0,
+        importanceScore: func.importanceScore ?? func.importance_score ?? 0
+      }))
+    }
   },
-  beforeUnmount() {
-    if (this.chart) {
-      this.chart.dispose()
+  watch: {
+    // 监听 dbPath 变化，自动重新加载数据
+    dbPath(newPath, oldPath) {
+      console.log('HotFunctionsWidget: dbPath changed from', oldPath, 'to', newPath)
+      if (newPath && newPath !== oldPath) {
+        this.loadHotFunctions()
+      }
+    }
+  },
+  mounted() {
+    if (this.dbPath) {
+      this.loadHotFunctions()
     }
   },
   methods: {
@@ -167,112 +175,10 @@ export default {
       try {
         const data = await staticAnalysisAPI.getHotFunctions(this.limit, this.sortBy)
         this.functions = data.functions || []
-        
-        this.$nextTick(() => {
-          this.initChart()
-        })
       } catch (error) {
-        console.error('加载热点函数失败:', error)
+        console.error('Failed to load hot functions:', error)
       } finally {
         this.loading = false
-      }
-    },
-
-    initChart() {
-      if (!this.$refs.hotFunctionsChart || !this.functions.length) return
-
-      if (this.chart) {
-        this.chart.dispose()
-      }
-
-      this.chart = echarts.init(this.$refs.hotFunctionsChart)
-      
-      // 取前20个函数用于图表显示，并验证数据完整性
-      const chartData = this.functions
-        .filter(f => f && f.name && typeof f.importanceScore === 'number')
-        .slice(0, 20)
-
-      if (chartData.length === 0) {
-        console.warn('No valid function data for chart')
-        return
-      }
-      
-      const option = {
-        tooltip: {
-          trigger: 'axis',
-          axisPointer: {
-            type: 'shadow'
-          },
-          formatter: function(params) {
-            const data = params[0]
-            return `${data.name}<br/>重要性评分: ${data.value}`
-          }
-        },
-        grid: {
-          left: '3%',
-          right: '4%',
-          bottom: '15%',
-          containLabel: true
-        },
-        xAxis: {
-          type: 'category',
-          data: chartData.map(f => f.name.length > 20 ? f.name.substring(0, 20) + '...' : f.name),
-          axisLabel: {
-            rotate: 45,
-            fontSize: 10
-          }
-        },
-        yAxis: {
-          type: 'value',
-          name: '重要性评分'
-        },
-        series: [
-          {
-            name: '重要性评分',
-            type: 'bar',
-            data: chartData.map(f => f.importanceScore),
-            itemStyle: {
-              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                { offset: 0, color: '#ff6b6b' },
-                { offset: 1, color: '#ee5a24' }
-              ])
-            },
-            emphasis: {
-              itemStyle: {
-                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                  { offset: 0, color: '#ff5252' },
-                  { offset: 1, color: '#d63031' }
-                ])
-              }
-            }
-          }
-        ]
-      }
-
-      try {
-        this.chart.setOption(option)
-        
-        // 点击图表跳转到详情
-        this.chart.on('click', (params) => {
-          const func = chartData[params.dataIndex]
-          if (func) {
-            this.viewFunctionDetail(func)
-          }
-        })
-        
-        // 响应式调整
-        window.addEventListener('resize', () => {
-          this.chart?.resize()
-        })
-      } catch (error) {
-        console.error('Error setting hot functions chart option:', error)
-        console.error('Chart data:', chartData)
-        
-        // 如果图表初始化失败，销毁图表实例
-        if (this.chart) {
-          this.chart.dispose()
-          this.chart = null
-        }
       }
     },
 
@@ -285,6 +191,11 @@ export default {
 </script>
 
 <style scoped>
+.hot-functions-list {
+  width: 100%;
+  min-height: 200px;
+}
+
 .controls .form-select {
   width: auto;
   min-width: 120px;
