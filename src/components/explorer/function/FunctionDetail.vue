@@ -24,19 +24,19 @@
             <div class="info-grid">
               <div class="info-item">
                 <label>函数名:</label>
-                <span class="function-name">{{ functionDetail.name }}</span>
+                <span class="function-name">{{ functionDetail.name || 'N/A' }}</span>
               </div>
               <div class="info-item">
                 <label>包名:</label>
-                <span class="package-name">{{ functionDetail.package }}</span>
+                <span class="package-name">{{ functionDetail.package || 'N/A' }}</span>
               </div>
               <div class="info-item">
                 <label>完整名称:</label>
-                <span class="full-name">{{ functionDetail.fullName }}</span>
+                <span class="full-name">{{ functionDetail.fullName || 'N/A' }}</span>
               </div>
               <div class="info-item">
                 <label>函数Key:</label>
-                <span class="function-key">{{ functionDetail.key }}</span>
+                <span class="function-key">{{ functionDetail.key || 'N/A' }}</span>
               </div>
             </div>
           </div>
@@ -287,19 +287,43 @@ export default {
 
     copyFunctionInfo() {
       if (!this.functionDetail) return
-      
       const info = [
-        `函数名: ${this.functionDetail.name}`,
-        `包名: ${this.functionDetail.package}`,
-        `完整名称: ${this.functionDetail.fullName}`,
-        `函数Key: ${this.functionDetail.key}`,
+        `函数名: ${this.functionDetail.name || 'N/A'}`,
+        `包名: ${this.functionDetail.package || 'N/A'}`,
+        `完整名称: ${this.functionDetail.fullName || 'N/A'}`,
+        `函数Key: ${this.functionDetail.key || 'N/A'}`,
         this.functionDetail.signature ? `签名: ${this.functionDetail.signature}` : '',
         this.functionDetail.position ? `位置: ${this.functionDetail.position.filename}:${this.functionDetail.position.startLine}-${this.functionDetail.position.endLine}` : ''
       ].filter(Boolean).join('\n')
-      
-      navigator.clipboard.writeText(info).then(() => {
-        // 可以添加提示消息
-        console.log('函数信息已复制到剪贴板')
+
+      const tryClipboard = async () => {
+        try {
+          if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(info)
+            console.log('函数信息已复制到剪贴板')
+            return true
+          }
+        } catch (e) {
+          console.warn('clipboard API not available, fallback to execCommand')
+        }
+        return false
+      }
+
+      tryClipboard().then((ok) => {
+        if (ok) return
+        try {
+          const ta = document.createElement('textarea')
+          ta.value = info
+          ta.style.position = 'fixed'
+          ta.style.opacity = '0'
+          document.body.appendChild(ta)
+          ta.select()
+          document.execCommand('copy')
+          document.body.removeChild(ta)
+          console.log('函数信息已复制到剪贴板(兼容模式)')
+        } catch (err) {
+          console.warn('复制失败:', err)
+        }
       })
     }
   }

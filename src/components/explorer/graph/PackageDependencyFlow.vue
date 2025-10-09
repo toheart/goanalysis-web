@@ -11,14 +11,15 @@
       <div class="card">
         <div class="card-body text-center py-5">
           <i class="bi bi-inbox display-4 text-muted mb-3"></i>
-          <h5 class="text-muted">暂无包依赖数据</h5>
-          <p class="text-muted small">当前数据库中没有包依赖关系数据</p>
+          <h5 class="text-muted">暂无可展示的包依赖数据</h5>
+          <p class="text-muted small">请确认存在名为 "main" 的包，或选择其它数据库</p>
         </div>
       </div>
     </div>
 
     <!-- Vue Flow 图表 -->
     <VueFlow
+      ref="flow"
       v-else
       v-model:nodes="nodes"
       v-model:edges="edges"
@@ -39,22 +40,9 @@
       <!-- 小地图 -->
       <MiniMap />
 
-      <!-- 自定义节点模板 -->
-      <template #node-package="{ data }">
-        <div class="package-node" :class="{ 'selected': data.selected, 'external': data.external }">
-          <div class="node-header">
-            <i class="bi bi-box-fill me-2"></i>
-            <span class="node-title">{{ data.label }}</span>
-          </div>
-          <div class="node-stats">
-            <span class="stat-badge">
-              <i class="bi bi-arrow-up-right"></i> {{ data.outDegree }}
-            </span>
-            <span class="stat-badge">
-              <i class="bi bi-arrow-down-left"></i> {{ data.inDegree }}
-            </span>
-          </div>
-        </div>
+      <!-- 自定义节点模板：统一使用 NodeCard 卡片，悬停显示完整包名 -->
+      <template #node-package="{ id, data }">
+        <NodeCard :id="id" :data="{ title: data.label, pkg: data.fullName }" :selected="data.selected" />
       </template>
     </VueFlow>
 
@@ -92,11 +80,13 @@
 </template>
 
 <script>
-import { VueFlow } from '@vue-flow/core'
+import { VueFlow, MarkerType } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import { MiniMap } from '@vue-flow/minimap'
 import { staticAnalysisAPI } from '../../../config/api'
+import { applyDagreLayout } from './layout/dagreLayout'
+import NodeCard from '../function/NodeCard.vue'
 
 export default {
   name: 'PackageDependencyFlow',
@@ -104,12 +94,24 @@ export default {
     VueFlow,
     Background,
     Controls,
-    MiniMap
+    MiniMap,
+    NodeCard
   },
   props: {
-    packagesToShow: {
-      type: Array,
-      default: () => []
+    // 根包名（严格等于 main），不做回退
+    rootPackageName: {
+      type: String,
+      default: 'main'
+    },
+    // 初始展示的包数量上限
+    initialNodeLimit: {
+      type: Number,
+      default: 20
+    },
+    // 每次展开的子依赖数量
+    expandBatchSize: {
+      type: Number,
+      default: 5
     }
   },
   emits: ['package-selected', 'edge-selected'],
@@ -118,22 +120,26 @@ export default {
       loading: false,
       nodes: [],
       edges: [],
-      fullData: null
+      fullData: null,
+      // 当前使用的中心根包名（从 props 初始化，可在运行时检测替换）
+      currentRootPackageName: this.rootPackageName,
+      // 可视集合与索引
+      visibleNodeIds: new Set(),
+      visibleEdges: [],
+      outAdjMap: new Map(),      // name -> Array<{target, callCount}>
+      inAdjMap: new Map(),       // name -> Array<source>
+      visibleInDegree: new Map(),
+      expandedNodes: new Set(),  // 已展开的节点
+      depthMap: new Map()        // name -> depth from root
     }
   },
-  watch: {
-    packagesToShow: {
-      handler(newVal) {
-        if (this.fullData) {
-          this.buildGraph(newVal)
-        }
-      },
-      deep: true,
-      immediate: false
-    }
-  },
+  watch: {},
   mounted() {
-    this.loadData()
+    if (this.currentRootPackageName) {
+      this.loadData()
+    } else {
+      console.warn('Root package name not provided; graph will remain empty until provided')
+    }
   },
   methods: {
     async loadData() {
@@ -143,9 +149,13 @@ export default {
         const data = await staticAnalysisAPI.getPackageDependencies()
         this.fullData = data
         console.log('Data loaded:', data)
-        
-        // 构建图
-        this.buildGraph(this.packagesToShow)
+
+        // 构建邻接表
+        this.buildAdjacency()
+        // 检测 main 所属包作为中心
+        await this.detectMainRoot()
+        // 从 root 构建初始可视集合
+        this.initializeFromRoot()
       } catch (error) {
         console.error('Failed to load package dependencies:', error)
         alert(`加载失败: ${error.message}`)
@@ -154,65 +164,108 @@ export default {
       }
     },
 
-    buildGraph(visiblePackages) {
-      if (!this.fullData) return
+    // ============ 新增：邻接与初始化 ============
+    buildAdjacency() {
+      this.outAdjMap.clear()
+      this.inAdjMap.clear()
 
-      const { packages = [], dependencies = [] } = this.fullData
-      
-      console.log('Building graph with packages:', visiblePackages.length)
+      const dependencies = this.fullData?.dependencies || []
+      dependencies.forEach(dep => {
+        const source = dep.sourcePackage || dep.source_package
+        const target = dep.targetPackage || dep.target_package
+        const callCount = dep.callCount ?? dep.call_count ?? 1
 
-      // 选择要显示的包
-      let selectedPackages = []
-      if (visiblePackages && visiblePackages.length > 0) {
-        selectedPackages = packages.filter(pkg => 
-          visiblePackages.includes(pkg.name)
-        )
-      } else {
-        // 默认显示Top 20
-        const packageStats = this.calculatePackageStats(packages, dependencies)
-        selectedPackages = packageStats.slice(0, 20)
+        if (!this.outAdjMap.has(source)) this.outAdjMap.set(source, [])
+        this.outAdjMap.get(source).push({ target, callCount })
+
+        if (!this.inAdjMap.has(target)) this.inAdjMap.set(target, [])
+        this.inAdjMap.get(target).push(source)
+      })
+
+      // 子依赖按调用次数降序，便于展开时挑选更“重要”的子包
+      for (const list of this.outAdjMap.values()) {
+        list.sort((a, b) => (b.callCount - a.callCount))
+      }
+    },
+
+    initializeFromRoot() {
+      const packages = this.fullData?.packages || []
+      const hasMain = packages.some(p => p.name === this.currentRootPackageName)
+      if (!hasMain) {
+        console.warn('Root package not found:', this.currentRootPackageName)
+        this.nodes = []
+        this.edges = []
+        this.visibleNodeIds.clear()
+        return
       }
 
-      console.log('Selected packages:', selectedPackages.length)
+      // BFS 仅出边，限制初始节点数
+      this.visibleNodeIds = new Set()
+      this.expandedNodes = new Set()
+      this.depthMap = new Map()
 
-      // 构建节点
-      this.nodes = selectedPackages.map((pkg, index) => {
-        const stats = this.getPackageStats(pkg.name, dependencies)
+      const queue = [this.currentRootPackageName]
+      this.visibleNodeIds.add(this.currentRootPackageName)
+      this.depthMap.set(this.currentRootPackageName, 0)
+
+      while (queue.length > 0 && this.visibleNodeIds.size < this.initialNodeLimit) {
+        const current = queue.shift()
+        const children = (this.outAdjMap.get(current) || []).map(x => x.target)
+        for (const child of children) {
+          if (!this.visibleNodeIds.has(child)) {
+            this.visibleNodeIds.add(child)
+            this.depthMap.set(child, (this.depthMap.get(current) || 0) + 1)
+            queue.push(child)
+            if (this.visibleNodeIds.size >= this.initialNodeLimit) break
+          }
+        }
+      }
+
+      this.rebuildGraphFromVisible()
+    },
+
+    // ============ 图构建与布局 ============
+    rebuildGraphFromVisible() {
+      const packages = this.fullData?.packages || []
+      const dependencies = this.fullData?.dependencies || []
+      const nodeIds = new Set(this.visibleNodeIds)
+
+      // 构建节点（先给出占位 position）
+      const selectedPackages = packages.filter(p => nodeIds.has(p.name))
+      this.nodes = selectedPackages.map((pkg) => {
+        const stats = this.getPackageStatsQuick(pkg.name)
         const isExternal = pkg.name.includes('github.com') || pkg.name.includes('golang.org')
-        
         return {
           id: pkg.name,
           type: 'package',
-          position: this.calculateNodePosition(index, selectedPackages.length),
+          position: { x: 0, y: 0 },
           data: {
             label: this.formatPackageName(pkg.name),
             fullName: pkg.name,
             external: isExternal,
             inDegree: stats.inDegree,
             outDegree: stats.outDegree,
-            selected: false
+            selected: pkg.name === this.currentRootPackageName,
+            expanded: this.expandedNodes.has(pkg.name)
           }
         }
       })
 
-      // 构建边
-      const nodeIds = new Set(this.nodes.map(n => n.id))
+      // 构建边（仅可见节点之间的边）
+      let edgeIdx = 0
       this.edges = dependencies
         .filter(dep => {
-          // 兼容蛇形和驼峰命名
           const sourcePkg = dep.sourcePackage || dep.source_package
           const targetPkg = dep.targetPackage || dep.target_package
           return nodeIds.has(sourcePkg) && nodeIds.has(targetPkg)
         })
-        .map((dep, index) => {
-          // 兼容蛇形和驼峰命名
+        .map(dep => {
           const sourcePkg = dep.sourcePackage || dep.source_package
           const targetPkg = dep.targetPackage || dep.target_package
           const callCount = dep.callCount ?? dep.call_count ?? 1
           const strength = dep.dependencyStrength ?? dep.dependency_strength ?? 1
-          
           return {
-            id: `e-${index}`,
+            id: `e-${edgeIdx++}`,
             source: sourcePkg,
             target: targetPkg,
             type: 'smoothstep',
@@ -221,83 +274,150 @@ export default {
               stroke: '#b1b1b7',
               strokeWidth: Math.max(1, Math.min(5, callCount / 10))
             },
-            data: {
-              callCount,
-              strength
-            }
+            markerEnd: MarkerType.ArrowClosed,
+            data: { callCount, strength }
           }
         })
 
-      console.log('Graph built - Nodes:', this.nodes.length, 'Edges:', this.edges.length)
+      // 更新可见入度计数
+      this.visibleInDegree = new Map()
+      for (const nodeId of nodeIds) this.visibleInDegree.set(nodeId, 0)
+      for (const e of this.edges) {
+        this.visibleInDegree.set(e.target, (this.visibleInDegree.get(e.target) || 0) + 1)
+      }
+
+      // 应用 dagre 布局（LR）
+      const laid = applyDagreLayout(this.nodes, this.edges, 'LR')
+      this.nodes = laid.nodes
+      this.$nextTick(() => this.$refs.flow?.fitView({ padding: 0.2 }))
+      console.log('Graph rebuilt - Nodes:', this.nodes.length, 'Edges:', this.edges.length)
     },
 
-    calculatePackageStats(packages, dependencies) {
-      return packages.map(pkg => {
-        const stats = this.getPackageStats(pkg.name, dependencies)
-        return {
-          ...pkg,
-          importance: stats.inDegree * 0.6 + stats.outDegree * 0.4,
-          inDegree: stats.inDegree,
-          outDegree: stats.outDegree
-        }
-      }).sort((a, b) => b.importance - a.importance)
-    },
-
-    getPackageStats(packageName, dependencies) {
-      // 兼容蛇形和驼峰命名
-      const inDegree = dependencies.filter(d => {
-        const targetPkg = d.targetPackage || d.target_package
-        return targetPkg === packageName
-      }).length
-      const outDegree = dependencies.filter(d => {
-        const sourcePkg = d.sourcePackage || d.source_package
-        return sourcePkg === packageName
-      }).length
+    getPackageStatsQuick(pkgName) {
+      const inDegree = (this.inAdjMap.get(pkgName) || []).length
+      const outDegree = (this.outAdjMap.get(pkgName) || []).length
       return { inDegree, outDegree }
     },
 
-    calculateNodePosition(index, total) {
-      // 环形布局
-      const radius = 300
-      const angle = (index / total) * 2 * Math.PI
-      return {
-        x: 500 + radius * Math.cos(angle),
-        y: 500 + radius * Math.sin(angle)
-      }
+    // 分层布局：按深度层级水平/同心分布
+    calculateLayerPosition(depth, index, total) {
+      const layerRadius = 140
+      const centerX = 500
+      const centerY = 500
+      const r = 60 + depth * layerRadius
+      const countInLayer = Math.max(6, Math.min(20, total))
+      const angle = (index % countInLayer) / countInLayer * 2 * Math.PI
+      return { x: centerX + r * Math.cos(angle), y: centerY + r * Math.sin(angle) }
     },
 
     formatPackageName(name) {
-      // 简化包名显示
       const parts = name.split('/')
-      if (parts.length > 3) {
-        return '...' + parts.slice(-2).join('/')
-      }
+      if (parts.length > 3) return '...' + parts.slice(-2).join('/')
       return name
     },
 
+    // ============ 交互：点击展开/收起 ============
     onNodeClick(event) {
-      console.log('Node clicked:', event.node)
-      
-      // 高亮选中的节点
+      const nodeId = event.node.id
+      console.log('Node clicked:', nodeId)
+
+      // 高亮选中（main 所属包始终高亮）
       this.nodes = this.nodes.map(node => ({
         ...node,
-        data: {
-          ...node.data,
-          selected: node.id === event.node.id
-        }
+        data: { ...node.data, selected: node.id === nodeId || node.id === this.currentRootPackageName }
       }))
 
-      // 触发事件
-      this.$emit('package-selected', {
-        name: event.node.data.fullName,
-        inDegree: event.node.data.inDegree,
-        outDegree: event.node.data.outDegree
-      })
+      // 切换展开/收起
+      if (this.expandedNodes.has(nodeId)) {
+        this.collapseSubtree(nodeId)
+        this.expandedNodes.delete(nodeId)
+      } else {
+        this.expandNode(nodeId, this.expandBatchSize)
+        this.expandedNodes.add(nodeId)
+      }
+
+      // 更新节点 expanded 状态并重建可见图
+      this.rebuildGraphFromVisible()
+
+      // 向父组件上报
+      const stats = this.getPackageStatsQuick(nodeId)
+      this.$emit('package-selected', { name: nodeId, inDegree: stats.inDegree, outDegree: stats.outDegree })
     },
 
     onEdgeClick(event) {
       console.log('Edge clicked:', event.edge)
       this.$emit('edge-selected', event.edge.data)
+    },
+
+    expandNode(nodeId, batchSize) {
+      const neighbors = (this.outAdjMap.get(nodeId) || []).map(x => x.target)
+      let added = 0
+      for (const nb of neighbors) {
+        if (!this.visibleNodeIds.has(nb)) {
+          this.visibleNodeIds.add(nb)
+          this.depthMap.set(nb, (this.depthMap.get(nodeId) || 0) + 1)
+          added++
+          if (added >= batchSize) break
+        }
+      }
+    },
+
+    collapseSubtree(nodeId) {
+      // 收起：移除从 nodeId 出发的后代中“未被其他可见父引用”的节点
+      const descendants = new Set()
+      const stack = [nodeId]
+      // 仅沿当前可见边向下遍历
+      const outMapVisible = new Map()
+      for (const e of this.edges) {
+        if (!outMapVisible.has(e.source)) outMapVisible.set(e.source, [])
+        outMapVisible.get(e.source).push(e.target)
+      }
+      while (stack.length) {
+        const cur = stack.pop()
+        const children = outMapVisible.get(cur) || []
+        for (const c of children) {
+          if (!descendants.has(c)) {
+            descendants.add(c)
+            stack.push(c)
+          }
+        }
+      }
+      descendants.delete(nodeId)
+
+      // 保护有外部可见父的节点
+      const protectedNodes = new Set()
+      for (const d of descendants) {
+        const incoming = this.edges.filter(e => e.target === d)
+        const hasExternalParent = incoming.some(e => !descendants.has(e.source) && e.source !== nodeId)
+        if (hasExternalParent) protectedNodes.add(d)
+      }
+
+      // 可移除集合 = descendants - protectedNodes
+      for (const d of descendants) {
+        if (!protectedNodes.has(d)) this.visibleNodeIds.delete(d)
+      }
+    },
+
+    async detectMainRoot() {
+      try {
+        const packages = this.fullData?.packages || []
+        const pkgSet = new Set(packages.map(p => p.name))
+        const res = await staticAnalysisAPI.searchFunctions('main')
+        const candidates = (res.functions || []).filter(f => (f.name || '').toLowerCase() === 'main' && f.package)
+        let bestPkg = null
+        let bestScore = -1
+        for (const f of candidates) {
+          const pkg = f.package
+          if (!pkgSet.has(pkg)) continue
+          const out = (this.outAdjMap.get(pkg) || []).length
+          const inn = (this.inAdjMap.get(pkg) || []).length
+          const score = out * 2 + inn
+          if (score > bestScore) { bestScore = score; bestPkg = pkg }
+        }
+        if (bestPkg) this.currentRootPackageName = bestPkg
+      } catch (e) {
+        console.warn('detectMainRoot failed:', e)
+      }
     }
   }
 }

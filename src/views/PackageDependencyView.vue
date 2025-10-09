@@ -7,13 +7,11 @@
           <i class="bi bi-diagram-3 me-2"></i>包依赖关系图
         </h5>
         <div class="controls">
-          <span class="badge bg-light text-dark me-2">
-            {{ visiblePackagesInGraph.length || 20 }} 个包
-          </span>
+          <span class="badge bg-light text-dark me-2">初始 20 个包</span>
           <button 
             class="btn btn-sm btn-outline-primary"
             @click="resetGraph"
-            :disabled="visiblePackagesInGraph.length === 0"
+            :disabled="false"
             title="重置到Top 20视图"
           >
             <i class="bi bi-arrow-counterclockwise me-2"></i>重置
@@ -38,7 +36,10 @@
       <!-- 左侧: 依赖关系图 -->
       <div class="col-lg-9">
         <PackageDependencyFlow
-          :packages-to-show="visiblePackagesInGraph"
+          :key="flowKey"
+          :root-package-name="rootPackageName"
+          :initial-node-limit="20"
+          :expand-batch-size="5"
           @package-selected="handlePackageSelect"
         />
       </div>
@@ -71,7 +72,12 @@ export default {
   props: {
     dbPath: {
       type: String,
-      required: true
+      required: false
+    },
+    rootPackageName: {
+      type: String,
+      required: false,
+      default: ''
     }
   },
   data() {
@@ -81,30 +87,18 @@ export default {
       
       // 状态管理
       selectedPackageData: null,     // 当前选中的包详情
-      visiblePackagesInGraph: [],    // 当前在图中显示的包名列表
-      allDependencies: [],           // 所有依赖关系数据
+      allDependencies: [],           // 所有依赖关系数据（用于右侧表）
+      flowKey: 0,                    // 用于强制重建 Flow 子图
       
       // 计算属性的缓存
       packageDependencies: [],       // 选中包依赖的其他包
       packageDependents: []          // 依赖选中包的其他包
     }
   },
-  watch: {
-    // 监听 dbPath 变化，自动重新加载数据
-    dbPath(newPath, oldPath) {
-      console.log('PackageDependencyView: dbPath changed from', oldPath, 'to', newPath)
-      if (newPath && newPath !== oldPath) {
-        // 重置状态并重新加载
-        this.clearSelection()
-        this.visiblePackagesInGraph = [] // 重置显示列表
-        this.loadDependenciesData()
-      }
-    }
-  },
+  watch: {},
   mounted() {
-    if (this.dbPath) {
-      this.loadDependenciesData()
-    }
+    // 基于后端 session，直接加载
+    this.loadDependenciesData()
   },
   methods: {
     async loadDependenciesData() {
@@ -116,50 +110,13 @@ export default {
         this.allDependencies = data.dependencies || []
         console.log('Total dependencies:', this.allDependencies.length)
         
-        // 计算并显示Top 20包
-        if (this.allDependencies.length > 0) {
-          const topPackages = this.calculateTopPackages(this.allDependencies, 20)
-          this.visiblePackagesInGraph = topPackages.map(p => p.name)
-          console.log('Initialized with top packages:', this.visiblePackagesInGraph.length)
-        } else {
-          console.warn('No dependencies data loaded')
-        }
+        // Flow 子组件会自行从 main 初始化 20 个包
       } catch (error) {
         console.error('Failed to load dependencies data:', error)
         alert(`加载包依赖数据失败: ${error.message || '未知错误'}`)
       } finally {
         this.loading = false
       }
-    },
-
-    calculateTopPackages(dependencies, limit = 20) {
-      const packageMap = new Map()
-      
-      // 统计每个包的出入度
-      dependencies.forEach(dep => {
-        // 兼容蛇形和驼峰命名
-        const sourcePkg = dep.sourcePackage || dep.source_package
-        const targetPkg = dep.targetPackage || dep.target_package
-        
-        if (!packageMap.has(sourcePkg)) {
-          packageMap.set(sourcePkg, { name: sourcePkg, out: 0, in: 0 })
-        }
-        if (!packageMap.has(targetPkg)) {
-          packageMap.set(targetPkg, { name: targetPkg, out: 0, in: 0 })
-        }
-        packageMap.get(sourcePkg).out++
-        packageMap.get(targetPkg).in++
-      })
-      
-      // 按总度数（重要度）排序
-      return Array.from(packageMap.values())
-        .map(pkg => ({ 
-          ...pkg, 
-          total: pkg.in + pkg.out,
-          importance: (pkg.in * 0.6 + pkg.out * 0.4) // 入度权重更高
-        }))
-        .sort((a, b) => b.importance - a.importance)
-        .slice(0, limit)
     },
 
     handlePackageSelect(packageData) {
@@ -185,12 +142,7 @@ export default {
     },
 
     addPackageToGraph(packageName) {
-      console.log('Adding package to graph:', packageName)
-      
-      // 检查是否已经在图中
-      if (!this.visiblePackagesInGraph.includes(packageName)) {
-        this.visiblePackagesInGraph = [...this.visiblePackagesInGraph, packageName]
-      }
+      console.warn('当前模式不支持从右侧直接添加到图：', packageName)
     },
 
     clearSelection() {
@@ -200,11 +152,8 @@ export default {
     },
 
     resetGraph() {
-      // 重置到初始状态
-      if (this.allDependencies.length > 0) {
-        const topPackages = this.calculateTopPackages(this.allDependencies, 20)
-        this.visiblePackagesInGraph = topPackages.map(p => p.name)
-      }
+      // 通过切换 key 强制 Flow 子组件按 main 重新初始化 20 个包
+      this.flowKey++
       this.clearSelection()
     }
   }

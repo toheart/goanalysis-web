@@ -193,7 +193,8 @@ export default {
   props: {
     dbPath: {
       type: String,
-      required: true
+      required: false,
+      default: ''
     }
   },
   emits: ['view-call-graph'],

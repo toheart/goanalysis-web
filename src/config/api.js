@@ -104,7 +104,8 @@ export const staticAnalysisAPI = {
   async getInitFunctions(limit, packageFilter) {
     const params = {};
     if (limit) params.limit = limit;
-    if (packageFilter) params.packageFilter = packageFilter;
+    // 符合后端 proto 定义的蛇形参数名
+    if (packageFilter) params.package_filter = packageFilter;
     
     const response = await axios.get('/api/static/viz/initfunctions', { params });
     return response.data;

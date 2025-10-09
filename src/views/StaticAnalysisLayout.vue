@@ -40,85 +40,30 @@
 
     <!-- 主内容区 - 仅在选择数据库后显示 -->
     <div v-if="isDatabaseSelected" class="main-content">
-      <!-- 导航标签页 -->
+      <!-- 导航标签页（改为 router-link） -->
       <div class="nav-tabs-container mb-3">
         <ul class="nav nav-tabs">
           <li class="nav-item">
-            <a 
-              class="nav-link" 
-              :class="{ active: currentTab === 'overview' }"
-              @click="switchTab('overview')"
-            >
+            <router-link class="nav-link" :class="{ active: $route.name === 'StaticOverview' }" to="/static-analysis/overview">
               <i class="bi bi-speedometer2 me-2"></i>总览
-            </a>
+            </router-link>
           </li>
           <li class="nav-item">
-            <a 
-              class="nav-link" 
-              :class="{ active: currentTab === 'packages' }"
-              @click="switchTab('packages')"
-            >
+            <router-link class="nav-link" :class="{ active: $route.name === 'StaticPackages' }" to="/static-analysis/packages">
               <i class="bi bi-diagram-3 me-2"></i>包依赖图
-            </a>
+            </router-link>
           </li>
           <li class="nav-item">
-            <a 
-              class="nav-link" 
-              :class="{ active: currentTab === 'hotfunctions' }"
-              @click="switchTab('hotfunctions')"
-            >
-              <i class="bi bi-fire me-2"></i>热点函数
-            </a>
-          </li>
-          <li class="nav-item">
-            <a 
-              class="nav-link" 
-              :class="{ active: currentTab === 'callgraph' }"
-              @click="switchTab('callgraph')"
-            >
-              <i class="bi bi-diagram-2 me-2"></i>调用图
-            </a>
+            <router-link class="nav-link" :class="{ active: $route.name === 'StaticFunctionSearch' }" to="/static-analysis/search">
+              <i class="bi bi-search me-2"></i>函数搜索
+            </router-link>
           </li>
         </ul>
       </div>
 
-      <!-- 标签页内容 -->
+      <!-- 子路由渲染区域 -->
       <div class="tab-content">
-        <!-- 总览页 -->
-        <div v-show="currentTab === 'overview'" class="tab-pane">
-          <GlobalStatsWidget 
-              v-if="currentDatabase && currentDatabase.path"
-              :db-path="currentDatabase.path"
-            @view-hot-functions="switchTab('hotfunctions')"
-          />
-        </div>
-
-        <!-- 包依赖图页 -->
-        <div v-show="currentTab === 'packages'" class="tab-pane">
-            <PackageDependencyView 
-              v-if="currentDatabase && currentDatabase.path"
-              :db-path="currentDatabase.path" 
-            />
-        </div>
-
-        <!-- 热点函数页 -->
-        <div v-show="currentTab === 'hotfunctions'" class="tab-pane">
-            <HotFunctionsWidget 
-              v-if="currentDatabase && currentDatabase.path"
-              :db-path="currentDatabase.path" 
-            />
-        </div>
-
-        <!-- 调用图页 -->
-        <div v-show="currentTab === 'callgraph'" class="tab-pane">
-          <div class="card">
-            <div class="card-body text-center py-5">
-              <i class="bi bi-tools display-4 text-muted mb-3"></i>
-              <h5 class="text-muted">调用图功能开发中...</h5>
-              <p class="text-muted small">即将推出函数级别的调用关系可视化</p>
-            </div>
-          </div>
-        </div>
+        <router-view />
       </div>
     </div>
 
@@ -328,18 +273,12 @@
 
 <script>
 import DatabaseSelector from '../components/shared/DatabaseSelector.vue'
-import GlobalStatsWidget from '../components/dashboard/GlobalStatsWidget.vue'
-import PackageDependencyView from './PackageDependencyView.vue'
-import HotFunctionsWidget from '../components/dashboard/HotFunctionsWidget.vue'
 import { staticAnalysisAPI } from '../config/api'
 
 export default {
   name: 'StaticAnalysisLayout',
   components: {
-    DatabaseSelector,
-    GlobalStatsWidget,
-    PackageDependencyView,
-    HotFunctionsWidget
+    DatabaseSelector
   },
   data() {
     return {
@@ -362,6 +301,7 @@ export default {
       taskStatus: {},
       eventSource: null,
       analysisLogs: [],
+      progressTimer: null,
       
       // 错误状态
       error: null
@@ -379,6 +319,10 @@ export default {
     if (tab && this.currentMode === 'view') {
       this.currentTab = tab
     }
+
+    // 直链进入兜底：如果处于查看模式但尚未选择数据库，尝试触发子组件的自动选择
+    // 注意：DatabaseSelector 会在有新文件且当前未选中时自动发出 database-selected
+    // 这里不直接访问子组件实例，保持单向数据流，仅依赖其已有行为
   },
   beforeUnmount() {
     this.closeEventSource()
@@ -417,8 +361,17 @@ export default {
         this.currentDatabase = database
         this.isDatabaseSelected = true
         
-        // 重置到总览页
-        this.currentTab = 'overview'
+        // 若存在重定向目标，按目标路由跳转；否则回新概览路由
+        const redirect = this.$route.query.redirect
+        if (redirect === 'packages') {
+          this.$router.replace('/static-analysis/packages')
+        } else if (redirect === 'hotfunctions') {
+          this.$router.replace('/static-analysis/hotfunctions')
+        } else if (redirect === 'overview') {
+          this.$router.replace('/static-analysis/overview')
+        } else {
+          this.$router.replace('/static-analysis/overview')
+        }
         
         console.log('=== Database setup complete ===')
         console.log('isDatabaseSelected:', this.isDatabaseSelected)
@@ -430,6 +383,25 @@ export default {
         // 重置状态
         this.isDatabaseSelected = false
         this.currentDatabase = null
+      }
+    },
+
+    // 处理子组件请求的数据库会话重建
+    async handleDatabaseSetupNeeded() {
+      // 日志：父组件接收到会话重建请求
+      console.log('Rebuilding backend session for current database...')
+      try {
+        // 如果当前数据库存在，则调用后端接口重建 session
+        if (this.currentDatabase && this.currentDatabase.path) {
+          await staticAnalysisAPI.analyzeDbFile(this.currentDatabase.path)
+          // 确保标记为已选择，避免主内容被隐藏
+          this.isDatabaseSelected = true
+          console.log('Backend session rebuilt successfully')
+        } else {
+          console.warn('No currentDatabase available to rebuild session')
+        }
+      } catch (err) {
+        console.error('Failed to rebuild backend session:', err)
       }
     },
 
@@ -471,6 +443,8 @@ export default {
           
           // 使用SSE获取实时进度
           this.connectEventSource()
+          // 启动进度轮询
+          this.startProgressPolling()
         } else {
           this.error = response.message || '启动分析失败'
           this.analysisStep = 'input'
@@ -497,22 +471,26 @@ export default {
               0: 'starting',
               1: 'processing', 
               2: 'completed',
-              '-1': 'failed'
+              [-1]: 'failed'
             }
 
-            const statusType = data.type || statusMap[data.status] || 'processing'
+            // 后端字段为大写 `Type`/`Message`，这里做兼容
+            const rawType = (data.type !== undefined ? data.type : data.Type)
+            const statusType = (typeof rawType === 'number') ? (statusMap[rawType] || 'processing') : (rawType || 'processing')
+            const message = (data.message !== undefined ? data.message : data.Message) || ''
             
             this.taskStatus = {
               status: statusType,
-              message: data.message || '',
-              progress: data.progress || 0
+              message: message,
+              // 进度通过轮询接口更新，这里不依赖SSE中的progress
+              progress: this.taskStatus.progress || 0
             }
 
-            if (data.message) {
+            if (message) {
               this.analysisLogs.push({
                 time: new Date().toLocaleTimeString(),
                 type: statusType,
-                message: data.message
+                message: message
               })
               
               this.$nextTick(() => {
@@ -523,15 +501,17 @@ export default {
               })
             }
 
-            if (statusType === 'completed' || data.type === 'completed') {
+            if (statusType === 'completed') {
               console.log('Analysis completed!')
               this.closeEventSource()
               this.analysisStep = 'completed'
-            } else if (statusType === 'failed' || data.type === 'failed') {
+              this.clearProgressTimer()
+            } else if (statusType === 'failed') {
               console.error('Analysis failed:', data.message)
               this.closeEventSource()
-              this.error = data.message || '分析失败'
+              this.error = message || '分析失败'
               this.analysisStep = 'input'
+              this.clearProgressTimer()
             }
           } catch (err) {
             console.error('Failed to parse SSE message:', err, 'Raw data:', event.data)
@@ -545,6 +525,7 @@ export default {
           if (this.analysisStep === 'analyzing') {
             this.error = 'SSE连接失败，请检查网络或重试'
             this.analysisStep = 'input'
+            this.clearProgressTimer()
           }
         }
 
@@ -553,6 +534,7 @@ export default {
         console.error('Failed to create EventSource:', err)
         this.error = '无法建立实时连接'
         this.analysisStep = 'input'
+        this.clearProgressTimer()
       }
     },
 
@@ -564,8 +546,57 @@ export default {
       }
     },
 
+    // 轮询任务进度，直到完成/失败/取消
+    startProgressPolling() {
+      this.clearProgressTimer()
+      if (!this.taskId) return
+      this.progressTimer = setInterval(async () => {
+        try {
+          const resp = await staticAnalysisAPI.getAnalysisTaskStatus(this.taskId)
+          // 后端返回 progress 为 0-100，这里转换为 0-1
+          const normalized = (typeof resp.progress === 'number') ? (resp.progress / 100) : 0
+          const statusMap = {
+            0: 'starting',
+            1: 'processing',
+            2: 'completed',
+            [-1]: 'failed',
+            [-2]: 'not_found'
+          }
+          const statusType = statusMap[resp.status] || 'processing'
+          this.taskStatus = {
+            status: statusType,
+            message: this.taskStatus.message || '',
+            progress: normalized
+          }
+
+          if (resp.status === 2) {
+            // 完成
+            this.clearProgressTimer()
+            // SSE 会很快也会发 completed，这里不重复更改步骤
+          } else if (resp.status === -1) {
+            // 失败
+            this.clearProgressTimer()
+            this.closeEventSource()
+            this.error = resp.message || '分析失败'
+            this.analysisStep = 'input'
+          }
+        } catch (e) {
+          console.warn('Progress polling failed:', e)
+          // 不中断UI，仅记录
+        }
+      }, 1500)
+    },
+
+    clearProgressTimer() {
+      if (this.progressTimer) {
+        clearInterval(this.progressTimer)
+        this.progressTimer = null
+      }
+    },
+
     cancelAnalysis() {
       this.closeEventSource()
+      this.clearProgressTimer()
       this.analysisStep = 'input'
       this.taskId = null
       this.taskStatus = {}
@@ -580,6 +611,7 @@ export default {
       this.taskStatus = {}
       this.analysisLogs = []
       this.error = null
+      this.clearProgressTimer()
     },
 
     viewAnalysisResults() {

@@ -119,19 +119,117 @@
           </div>
         </div>
       </div>
+
+      <!-- Init 函数概览 -->
+      <div class="col-12 mb-4">
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="mb-0"><i class="bi bi-lightning-charge me-2"></i>Init 函数</h6>
+            <div>
+              <input v-model="initPackageFilter" class="form-control form-control-sm d-inline-block me-2" style="width: 240px;" placeholder="包名过滤（可选）" />
+              <button class="btn btn-sm btn-outline-secondary me-2" @click="loadInitFunctions">刷新</button>
+              <div class="form-check form-switch d-inline-block me-2 align-middle">
+                <input class="form-check-input" type="checkbox" id="toggleVendorStd" v-model="hideVendorStd">
+                <label class="form-check-label small" for="toggleVendorStd">隐藏 vendor/标准库</label>
+              </div>
+              <select v-model.number="initPageSize" class="form-select form-select-sm d-inline-block me-2" style="width: 120px;">
+                <option :value="10">每页 10</option>
+                <option :value="20">每页 20</option>
+                <option :value="50">每页 50</option>
+              </select>
+              <select v-model="initSortBy" class="form-select form-select-sm d-inline-block me-2" style="width: 150px;">
+                <option value="countDesc">按函数数降序</option>
+                <option value="pkgAsc">按包名升序</option>
+              </select>
+              <div class="btn-group d-inline-flex">
+                <button class="btn btn-sm btn-outline-secondary" @click="expandProjectOnly">展开项目包</button>
+                <button class="btn btn-sm btn-outline-secondary" @click="collapseAll">折叠全部</button>
+              </div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div v-if="loadingInit" class="text-center py-3">
+              <div class="spinner-border spinner-border-sm" role="status"></div>
+              <span class="ms-2">加载中...</span>
+            </div>
+            <div v-else>
+              <div v-if="groupedInitPage.length" class="table-responsive">
+                <table class="table table-sm align-middle">
+                  <thead>
+                    <tr>
+                      <th style="width: 40%">函数</th>
+                      <th style="width: 45%">包</th>
+                      <th style="width: 15%" class="text-end">位置</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template v-for="group in groupedInitPage" :key="group.package">
+                      <tr class="table-light group-header" @click="toggleGroup(group.package)">
+                        <td colspan="3" class="fw-bold">
+                          <i class="bi" :class="initCollapsedByPkg[group.package] ? 'bi-caret-right-fill' : 'bi-caret-down-fill'"></i>
+                          <i class="bi bi-folder2-open ms-1 me-1"></i>
+                          {{ group.package }}
+                          <span class="badge bg-secondary ms-2">{{ group.functions.length }}</span>
+                        </td>
+                      </tr>
+                      <tr v-for="f in group.functions" :key="f.key" class="row-clickable" v-show="!initCollapsedByPkg[group.package]" @click="openFunctionDetail(f)">
+                        <td>
+                          <span class="fw-semibold">{{ f.name }}</span>
+                          <small class="text-muted ms-2">{{ f.signature }}</small>
+                          <button class="btn btn-link btn-sm text-decoration-none ms-2 p-0 align-baseline" title="复制全名" @click.stop="copyText(f.full_name || f.fullName || f.name)">
+                            <i class="bi bi-clipboard"></i>
+                          </button>
+                        </td>
+                        <td>
+                          <span class="text-muted">{{ f.package }}</span>
+                        </td>
+                        <td class="text-end">
+                          <small class="text-muted">{{ f.position?.filename }}:{{ f.position?.startLine }}</small>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+                <div class="d-flex justify-content-between align-items-center mt-2">
+                  <div class="small text-muted">共 {{ groupedInit.length }} 个包</div>
+                  <div class="btn-group">
+                    <button class="btn btn-sm btn-outline-secondary" :disabled="initPage===1" @click="initPage--">上一页</button>
+                    <span class="btn btn-sm btn-outline-secondary disabled">第 {{ initPage }} / {{ initTotalPages }} 页</span>
+                    <button class="btn btn-sm btn-outline-secondary" :disabled="initPage===initTotalPages" @click="initPage++">下一页</button>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="text-center text-muted py-3">未发现 init 函数</div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
+    
+    <!-- 函数详情抽屉 -->
+    <FunctionDetailDrawer
+      :show="showDetailDrawer"
+      :function-key="selectedFunctionKey"
+      :db-path="dbPath"
+      @close="showDetailDrawer = false"
+      @view-call-graph="viewCallGraphFromDetail"
+      @find-call-paths="findCallPathsFromDetail"
+      @view-function="openFunctionDetailByKey"
+    />
   </div>
 </template>
 
 <script>
 import { staticAnalysisAPI } from '../../config/api'
+import FunctionDetailDrawer from '../explorer/function/FunctionDetail.vue'
 
 export default {
   name: 'GlobalStatsWidget',
+  components: { FunctionDetailDrawer },
   props: {
     dbPath: {
       type: String,
-      required: true
+      required: false
     }
   },
   emits: ['view-hot-functions', 'view-function-detail', 'database-setup-needed'],
@@ -139,7 +237,19 @@ export default {
     return {
       loading: false,
       stats: {},
-      hotFunctions: []
+      hotFunctions: [],
+      // Init 函数状态
+      loadingInit: false,
+      initFunctions: [],
+      initPackageFilter: '',
+      initPage: 1,
+      initPageSize: 10,
+      showDetailDrawer: false,
+      selectedFunctionKey: '',
+      // 轻量UI优化状态
+      hideVendorStd: true,
+      initSortBy: 'countDesc',
+      initCollapsedByPkg: {}
     }
   },
   computed: {
@@ -190,6 +300,32 @@ export default {
         callerCount: func.callerCount ?? func.caller_count ?? 0,
         calleeCount: func.calleeCount ?? func.callee_count ?? 0
       }))
+    },
+    groupedInit() {
+      const isVendorOrStd = (pkg) => pkg.startsWith('vendor/') || (!pkg.includes('.') && !pkg.startsWith('github.com') && !pkg.startsWith('golang.org'))
+      const groups = new Map()
+      for (const f of this.initFunctions) {
+        const pkg = f.package || 'unknown'
+        if (this.hideVendorStd && isVendorOrStd(pkg)) continue
+        if (!groups.has(pkg)) groups.set(pkg, [])
+        groups.get(pkg).push(f)
+      }
+      let result = Array.from(groups.entries()).map(([pkg, list]) => ({ package: pkg, functions: list }))
+      // 排序
+      if (this.initSortBy === 'countDesc') {
+        result.sort((a, b) => b.functions.length - a.functions.length || a.package.localeCompare(b.package))
+      } else {
+        result.sort((a, b) => a.package.localeCompare(b.package))
+      }
+      return result
+    },
+    groupedInitPage() {
+      const start = (this.initPage - 1) * this.initPageSize
+      const end = start + this.initPageSize
+      return this.groupedInit.slice(start, end)
+    },
+    initTotalPages() {
+      return Math.max(1, Math.ceil(this.groupedInit.length / this.initPageSize))
     }
   },
   watch: {
@@ -203,11 +339,9 @@ export default {
   },
   mounted() {
     console.log('GlobalStatsWidget mounted, dbPath:', this.dbPath)
-    if (this.dbPath) {
-      this.loadOverviewData()
-    } else {
-      console.warn('GlobalStatsWidget mounted but no dbPath provided')
-    }
+    // 基于后端session加载数据，不强依赖dbPath
+    this.loadOverviewData()
+    this.loadInitFunctions()
   },
   methods: {
     async loadOverviewData() {
@@ -221,6 +355,16 @@ export default {
 
         this.stats = stats
         this.hotFunctions = hotFunctionsData.functions || []
+
+        // 兜底：后端缺少 packageStats 时，基于包依赖关系估算 Top 包
+        const hasCamel = Array.isArray(this.stats.packageStats)
+        const hasSnake = Array.isArray(this.stats.package_stats)
+        if (!hasCamel && !hasSnake) {
+          console.warn('Package stats missing, falling back to dependency-based estimation')
+          const fallback = await this.buildFallbackPackageStats()
+          // 写入驼峰字段，保持后续计算逻辑一致
+          this.stats.packageStats = fallback
+        }
         
         // 调试日志: 打印统计数据结构
         console.log('Statistics data:', stats)
@@ -237,6 +381,64 @@ export default {
         }
       } finally {
         this.loading = false
+      }
+    },
+
+    async loadInitFunctions() {
+      this.loadingInit = true
+      try {
+        const resp = await staticAnalysisAPI.getInitFunctions(50, this.initPackageFilter || undefined)
+        // 兼容驼峰/蛇形
+        const list = resp.initFunctions || resp.init_functions || []
+        this.initFunctions = Array.isArray(list) ? list : []
+        this.initPage = 1
+      } catch (e) {
+        console.error('Failed to load init functions:', e)
+        this.initFunctions = []
+      } finally {
+        this.loadingInit = false
+      }
+    },
+
+    // 兜底计算：当后端未提供 packageStats 时，依据包依赖入/出度构建一个替代分布
+    // 注意：这里的 functionCount 不是函数数量，而是以入/出度加权后的估算值，仅用于可视化占比
+    async buildFallbackPackageStats() {
+      try {
+        const data = await staticAnalysisAPI.getPackageDependencies()
+        const packages = Array.isArray(data.packages) ? data.packages : []
+        const dependencies = Array.isArray(data.dependencies) ? data.dependencies : []
+
+        // 计算每个包的入度/出度
+        const nameToStats = new Map()
+        for (const pkg of packages) {
+          if (!pkg || !pkg.name) continue
+          nameToStats.set(pkg.name, { inDegree: 0, outDegree: 0 })
+        }
+
+        for (const dep of dependencies) {
+          const sourcePkg = dep.sourcePackage || dep.source_package
+          const targetPkg = dep.targetPackage || dep.target_package
+          if (nameToStats.has(sourcePkg)) {
+            nameToStats.get(sourcePkg).outDegree += 1
+          }
+          if (nameToStats.has(targetPkg)) {
+            nameToStats.get(targetPkg).inDegree += 1
+          }
+        }
+
+        // 将度信息映射为“估算强度”并作为 functionCount 使用
+        const results = []
+        for (const [pkgName, stat] of nameToStats.entries()) {
+          // 简单权重：60% 入度 + 40% 出度（与依赖图保持一致）
+          const score = stat.inDegree * 0.6 + stat.outDegree * 0.4
+          results.push({ packageName: pkgName, functionCount: Math.round(score) })
+        }
+
+        // 降序取前10
+        return results.sort((a, b) => b.functionCount - a.functionCount).slice(0, 10)
+      } catch (err) {
+        console.error('Failed to build fallback package stats:', err)
+        return []
       }
     },
 
@@ -268,6 +470,69 @@ export default {
       } catch (error) {
         console.error('Failed to retry database setup:', error)
       }
+    },
+
+    openFunctionDetail(func) {
+      this.selectedFunctionKey = func.key
+      this.showDetailDrawer = true
+    },
+
+    openFunctionDetailByKey(functionKey) {
+      this.selectedFunctionKey = functionKey
+      this.showDetailDrawer = true
+    },
+
+    viewCallGraphFromDetail(func) {
+      // 跳转到函数搜索页并打开上下游图
+      if (!func) return
+      this.$router.push({ name: 'StaticFunctionSearch', query: { openGraphKey: func.key || func.name } })
+    },
+
+    findCallPathsFromDetail(func) {
+      if (!func) return
+      // 跳函数搜索页，后续页面可实现打开路径查找
+      this.$router.push({ name: 'StaticFunctionSearch', query: { findPathsFor: func.key || func.name } })
+    },
+
+    toggleGroup(pkg) {
+      // Vue 3 支持直接新增/修改响应式对象属性
+      this.initCollapsedByPkg[pkg] = !this.initCollapsedByPkg[pkg]
+    },
+
+    collapseAll() {
+      const map = {}
+      for (const g of this.groupedInit) map[g.package] = true
+      this.initCollapsedByPkg = map
+    },
+
+    expandProjectOnly() {
+      const map = {}
+      for (const g of this.groupedInit) {
+        const isVendor = g.package.startsWith('vendor/')
+        const isStd = !g.package.includes('.') && !g.package.startsWith('github.com') && !g.package.startsWith('golang.org')
+        map[g.package] = isVendor || isStd
+      }
+      this.initCollapsedByPkg = map
+    },
+
+    copyText(text) {
+      if (!text) return
+      navigator.clipboard?.writeText(text).then(() => {
+        console.log('Copied to clipboard')
+      }).catch(() => {
+        try {
+          const ta = document.createElement('textarea')
+          ta.value = text
+          ta.style.position = 'fixed'
+          ta.style.opacity = '0'
+          document.body.appendChild(ta)
+          ta.select()
+          document.execCommand('copy')
+          document.body.removeChild(ta)
+        } catch (err) {
+          console.warn('Copy failed:', err)
+        }
+      })
     }
   }
 }
@@ -468,6 +733,15 @@ export default {
   font-size: 0.75rem;
   font-weight: 600;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.row-clickable { cursor: pointer; }
+.row-clickable:hover { background: rgba(71, 133, 255, 0.06); }
+
+.group-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .package-chart::-webkit-scrollbar {

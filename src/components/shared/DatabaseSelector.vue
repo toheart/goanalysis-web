@@ -43,7 +43,10 @@
                 <span><i class="bi bi-clock me-1"></i>{{ formatDate(db.createTime) }}</span>
               </div>
             </div>
-            <div class="db-item-action">
+            <div class="db-item-action d-flex align-items-center gap-2">
+              <button class="btn btn-sm btn-outline-danger" @click.stop="confirmDelete(db)">
+                <i class="bi bi-trash"></i>
+              </button>
               <i v-if="currentDatabase && currentDatabase.path === db.path" class="bi bi-check-circle-fill text-success"></i>
               <i v-else class="bi bi-arrow-right-circle text-muted"></i>
             </div>
@@ -108,17 +111,20 @@ export default {
         const data = await staticAnalysisAPI.getStaticDbFiles()
         const newFiles = data.files || []
         
-        // 检查是否有新文件
-        const hasNewFiles = newFiles.length > this.dbFiles.length
-        
+        // 记录老列表长度以判断是否新增
+        const previousLength = this.dbFiles.length
         this.dbFiles = newFiles
         console.log('Loaded database files:', this.dbFiles.length)
-        
-        // 如果有新文件且文件按时间排序，自动选择最新的
-        if (hasNewFiles && this.dbFiles.length > 0 && !this.currentDatabase) {
-          console.log('New database file detected, auto-selecting latest')
-          // 假设第一个是最新的
-          await this.selectDatabase(this.dbFiles[0], false)
+
+        // 自动选择策略：
+        // 1) 初次加载完成且还未选中时，直接选最新
+        // 2) 列表新增文件时，若未选中，则选最新
+        const isInitial = this.initialLoading === true
+        const hasNewFiles = this.dbFiles.length > previousLength
+        const shouldAutoSelect = this.dbFiles.length > 0 && !this.currentDatabase && (isInitial || hasNewFiles)
+        if (shouldAutoSelect) {
+          console.log('Auto-selecting latest database due to', isInitial ? 'initial load' : 'new files detected')
+          await this.selectDatabase(this.dbFiles[0])
         }
       } catch (error) {
         console.error('Failed to load database files:', error)
@@ -151,6 +157,27 @@ export default {
       console.log('Emitting database-selected event')
       this.$emit('database-selected', db)
       console.log('Database selected successfully:', db.name)
+    },
+
+    async confirmDelete(db) {
+      // 二次确认删除
+      if (!confirm(`确定要删除 ${db.name} 吗？该操作不可恢复。`)) return
+      try {
+        // 真删除接口（后端实现后可直连），这里先尝试调用，失败则给出提示
+        const { default: axios } = await import('../../axios')
+        await axios.delete(`/api/static/dbfiles/${encodeURIComponent(btoa(db.path))}`)
+        // 如果删除的是当前选中库，清理会话并通知父级
+        if (this.currentDatabase && this.currentDatabase.path === db.path) {
+          try { await axios.delete('/api/session') } catch (e) { console.warn('clear session failed', e) }
+          this.currentDatabase = null
+          this.$emit('database-selected', null)
+        }
+        // 刷新列表
+        await this.loadDbFiles()
+      } catch (err) {
+        console.error('Delete database file failed:', err)
+        alert('删除失败，请稍后重试')
+      }
     },
 
     formatSize(bytes) {
