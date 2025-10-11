@@ -722,7 +722,7 @@ export default {
           formData.append('description', this.uploadForm.description);
           formData.append('content_type', this.uploadForm.contentType);
           
-          await axios.post('/runtime/file/upload', formData, {
+          await axios.post('/api/runtime/file/upload', formData, {
             headers: {
               'Content-Type': 'multipart/form-data'
             },
