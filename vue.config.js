@@ -34,7 +34,7 @@ module.exports = defineConfig({
         cookiePathRewrite: {
           '*': '/'
         },
-        onProxyReq: (proxyReq, req, res) => {
+        onProxyReq: (proxyReq, req) => {
           // 确保代理请求包含原始的cookie
           if (req.headers.cookie) {
             proxyReq.setHeader('cookie', req.headers.cookie);
@@ -42,7 +42,7 @@ module.exports = defineConfig({
           // 设置正确的Origin头
           proxyReq.setHeader('Origin', getApiUrl());
         },
-        onProxyRes: (proxyRes, req, res) => {
+        onProxyRes: (proxyRes) => {
           // 处理Set-Cookie响应头，确保Cookie能在localhost域下工作
           const setCookieHeaders = proxyRes.headers['set-cookie'];
           if (setCookieHeaders) {
