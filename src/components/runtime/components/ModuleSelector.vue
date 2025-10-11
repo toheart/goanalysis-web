@@ -81,6 +81,7 @@
 <script>
 import { computed, watch } from 'vue';
 import { useModuleState } from '../composables/useModuleState';
+import { ensureAnalysisPath } from '../../../config/api.js';
 
 export default {
   name: 'ModuleSelector',
@@ -107,10 +108,15 @@ export default {
     const moduleOptions = computed(() => getModuleOptions());
 
     // 加载module列表
-    const loadModuleList = async (dbPath) => {
+    const loadModuleList = async (skipSessionCheck = false) => {
       try {
         loading.value = true;
         error.value = null;
+        
+        // 只在需要时确保session中有分析路径
+        if (!skipSessionCheck) {
+          await ensureAnalysisPath();
+        }
         
         const response = await fetch('/api/runtime/modules', {
           method: 'POST',
@@ -118,7 +124,6 @@ export default {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            dbpath: dbPath,
             maxSamples: 100
           })
         });
@@ -154,10 +159,11 @@ export default {
     // 监听dbPath变化，重新加载module列表和选中的module
     watch(() => props.dbPath, async (newDbPath) => {
       if (newDbPath) {
+        console.log('🔄 ModuleSelector dbPath变化:', newDbPath);
         // 加载该数据库对应的module选择
         loadSelectedModule(newDbPath);
-        // 加载module列表
-        await loadModuleList(newDbPath);
+        // 加载module列表（跳过session检查，因为父组件已经确保了session）
+        await loadModuleList(true);
       }
     }, { immediate: true });
 

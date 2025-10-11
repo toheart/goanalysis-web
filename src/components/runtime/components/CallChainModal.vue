@@ -252,6 +252,7 @@ import { useRouter } from 'vue-router';
 import axios from '../../../axios';
 import { formatFunctionName } from '../utils/functionNameUtils.js';
 import { useModuleState } from '../composables/useModuleState.js';
+import { ensureAnalysisPath } from '../../../config/api.js';
 
 export default {
   name: 'CallChainModal',
@@ -336,8 +337,10 @@ export default {
         
         // 获取函数详细信息
         if (props.targetFunctionId && props.gid) {
+          // 确保session中有分析路径
+          await ensureAnalysisPath();
+          
           const functionInfoResponse = await axios.post('/api/runtime/function/info', {
-            dbpath: props.dbPath,
             gid: props.gid,
             functionId: props.targetFunctionId,
             currentDepth: props.depth || 3
@@ -382,8 +385,7 @@ export default {
       router.push({
         name: 'FunctionAnalysis',
         query: { 
-          search: functionName,
-          dbpath: props.dbPath
+          search: functionName
         }
       });
     };

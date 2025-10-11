@@ -1,10 +1,11 @@
 import { ref, computed } from 'vue';
 import axios from 'axios';
+import { ensureAnalysisPath } from '../../../config/api.js';
 
 export function useTraceTree(flattenedTraceData, gid) {
   // 常量定义
   const MAX_AUTO_EXPAND_CHILDREN = 3;
-  const MAX_LAZY_LOAD_DEPTH = 8;
+  const MAX_LAZY_LOAD_DEPTH = 20;
   
   // 树状态管理
   const expandedNodes = ref(new Set());
@@ -13,10 +14,7 @@ export function useTraceTree(flattenedTraceData, gid) {
   const normalizeId = (id) => String(id);
   const isSameId = (id1, id2) => normalizeId(id1) === normalizeId(id2);
   
-  // 获取当前数据库路径
-  const getCurrentDbPath = () => {
-    return localStorage.getItem('verifiedProjectPath') || '';
-  };
+
   
   // 计算属性：处理后的追踪数据（简化版本）
   const processedTraceData = computed(() => {
@@ -276,13 +274,10 @@ export function useTraceTree(flattenedTraceData, gid) {
       return;
     }
     
-    const dbPath = getCurrentDbPath();
-    if (!dbPath) {
-      console.error('数据库路径未设置');
-      return;
-    }
-    
     try {
+      // 确保session中有分析路径
+      await ensureAnalysisPath();
+      
       // 设置加载状态
       parentNode.loading = true;
       
@@ -290,8 +285,7 @@ export function useTraceTree(flattenedTraceData, gid) {
       
       // 调用API获取子节点数据
       const response = await axios.post('/api/runtime/functions/children', {
-        parentId: parseInt(parentNode.id),
-        dbpath: dbPath
+        parentId: parseInt(parentNode.id)
       });
       
       if (response.data && response.data.functions && Array.isArray(response.data.functions)) {

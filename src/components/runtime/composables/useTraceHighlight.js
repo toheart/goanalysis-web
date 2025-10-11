@@ -1,5 +1,6 @@
 import { ref } from 'vue';
 import axios from '../../../axios';
+import { ensureAnalysisPath } from '../../../config/api.js';
 
 export function useTraceHighlight(flattenedTraceData, expandNode, buildPathToNode, loadChildren, depth = null, progressCallback = null) {
   // 常量定义
@@ -110,17 +111,17 @@ export function useTraceHighlight(flattenedTraceData, expandNode, buildPathToNod
   // 通过API接口展开到高亮函数
   const expandToHighlightedFunctionViaAPI = async () => {
     try {
-      const dbPath = localStorage.getItem('verifiedProjectPath');
       const currentGid = getCurrentGidFromURL();
       
-      if (!dbPath || !currentGid) {
-        console.error('缺少必要参数:', { dbPath, currentGid });
+      if (!currentGid) {
+        console.error('缺少必要参数:', { currentGid });
         return;
       }
       
+      // 确保session中有分析路径
+      await ensureAnalysisPath();
       
       const response = await axios.post('/api/runtime/function/info', {
-        dbpath: dbPath,
         gid: currentGid,
         functionId: normalizeId(highlightedFunctionId.value),
         currentDepth: depth?.value || 3 // 使用传入的深度或默认值3
@@ -174,7 +175,6 @@ export function useTraceHighlight(flattenedTraceData, expandNode, buildPathToNod
               // 尝试通过API直接获取这个父节点的信息
               try {
                 const parentResponse = await axios.post('/api/runtime/function/info', {
-                  dbpath: dbPath,
                   gid: currentGid,
                   functionId: parentInfo.parentId,
                   currentDepth: 1
@@ -250,7 +250,6 @@ export function useTraceHighlight(flattenedTraceData, expandNode, buildPathToNod
                 try {
                   console.log(`🔍 尝试通过API直接获取目标节点信息: ${highlightedFunctionId.value}`);
                   const targetResponse = await axios.post('/api/runtime/function/info', {
-                    dbpath: dbPath,
                     gid: currentGid,
                     functionId: normalizeId(highlightedFunctionId.value),
                     currentDepth: 1
@@ -311,7 +310,6 @@ export function useTraceHighlight(flattenedTraceData, expandNode, buildPathToNod
                 try {
                   // 重新获取追踪详情数据
                   const reloadResponse = await axios.post(`/api/runtime/traces/${currentGid}`, {
-                    dbpath: dbPath,
                     depth: depth?.value || 5 // 增加深度
                   });
                   

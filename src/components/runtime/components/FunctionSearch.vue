@@ -73,6 +73,7 @@ import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import axios from 'axios';
 import debounce from 'lodash/debounce';
+import { ensureAnalysisPath } from '../../../config/api.js';
 
 export default {
   name: 'FunctionSearch',
@@ -99,7 +100,7 @@ export default {
 
     // 获取函数列表
     const fetchFunctions = async (query) => {
-      if (!props.dbPath || !query) {
+      if (!query) {
         items.value = [];
         return;
       }
@@ -107,8 +108,10 @@ export default {
       loading.value = true;
 
       try {
+        // 确保session中有分析路径
+        await ensureAnalysisPath();
+        
         const response = await axios.post('/api/runtime/functions/search', {
-          dbpath: props.dbPath,
           query: query,
           limit: 10
         });

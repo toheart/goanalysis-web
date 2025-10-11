@@ -309,6 +309,7 @@ import axios from '../../../axios';
 import debounce from 'lodash/debounce';
 import CallChainModal from './CallChainModal.vue';
 import { formatFunctionName } from '../utils/functionNameUtils.js';
+import { ensureAnalysisPath } from '../../../config/api.js';
 import { useModuleState } from '../composables/useModuleState.js';
 
 export default {
@@ -350,7 +351,7 @@ export default {
 
     // 获取函数列表
     const fetchFunctions = async (query) => {
-      if (!currentDbPath.value || !query) {
+      if (!query) {
         items.value = [];
         return;
       }
@@ -358,8 +359,10 @@ export default {
       loading.value = true;
 
       try {
+        // 确保session中有分析路径
+        await ensureAnalysisPath();
+        
         const response = await axios.post('/api/runtime/functions/search', {
-          dbpath: currentDbPath.value,
           query: query,
           limit: 10
         });
@@ -452,8 +455,8 @@ export default {
     };
 
     const analyzeFunctionDetails = async (functionName) => {
-      if (!currentDbPath.value || !functionName) {
-        console.log('缺少必要参数:', { currentDbPath: currentDbPath.value, functionName });
+      if (!functionName) {
+        console.log('缺少必要参数:', { functionName });
         return;
       }
       
@@ -461,9 +464,11 @@ export default {
       try {
         goroutineData.value = [];
         
+        // 确保session中有分析路径
+        await ensureAnalysisPath();
+        
         try {
           const goroutineResponse = await axios.post('/api/runtime/gids/function', {
-            path: currentDbPath.value,
             functionName: functionName,
             includeMetrics: true
           });
@@ -507,7 +512,6 @@ export default {
                 console.log(`使用Goroutine自己的functionId ${goroutine.functionId} 调用info接口`);
                 try {
                   const functionInfoResponse = await axios.post('/api/runtime/function/info', {
-                    dbpath: currentDbPath.value,
                     gid: goroutine.gid,
                     functionId: goroutine.functionId,
                     currentDepth: goroutine.depth || 3
